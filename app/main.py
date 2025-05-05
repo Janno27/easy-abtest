@@ -1,10 +1,20 @@
+import sys
+import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.core.config import settings 
-from app.routers import estimate
-from app.core.logging import setup_logging
 import time
 from loguru import logger
+
+# Ajouter le répertoire parent au chemin d'importation Python pour permettre
+# l'importation du module 'app' même si ce fichier est exécuté directement
+parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if parent_dir not in sys.path:
+    sys.path.insert(0, parent_dir)
+
+# Maintenant on peut importer depuis 'app'
+from app.core.config import settings
+from app.routers import estimate
+from app.core.logging import setup_logging
 
 # Setup logging
 setup_logging()

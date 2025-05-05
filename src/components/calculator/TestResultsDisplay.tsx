@@ -12,7 +12,6 @@ interface WeeklyEvolution {
   visitors_per_variant: number;
   mde_relative: number;
   status: string;
-  target_rate?: number; // Taux de conversion cible
 }
 
 interface TestResultsDisplayProps {
@@ -77,21 +76,7 @@ export const TestResultsDisplay: React.FC<TestResultsDisplayProps> = ({ results,
       }
       
       const data = await response.json();
-      
-      // Calculate baseline conversion rate
-      const baselineRate = testData.conversionRate / 100;
-      
-      // Add target conversion rate to each week's data
-      const enhancedData = data.map((week: WeeklyEvolution) => {
-        // Calculate target conversion rate: baseline + relative improvement
-        const targetRate = baselineRate * (1 + (testData.expectedImprovement / 100));
-        return {
-          ...week,
-          target_rate: targetRate
-        };
-      });
-      
-      setWeeklyEvolution(enhancedData);
+      setWeeklyEvolution(data);
     } catch (error) {
       console.error("Error loading weekly evolution data:", error);
     } finally {
@@ -145,11 +130,6 @@ export const TestResultsDisplay: React.FC<TestResultsDisplayProps> = ({ results,
       default:
         return status;
     }
-  };
-  
-  // Format conversion rate as percentage with 2 decimal places
-  const formatConversionRate = (rate: number) => {
-    return (rate * 100).toFixed(2) + '%';
   };
   
   return (
@@ -217,7 +197,6 @@ export const TestResultsDisplay: React.FC<TestResultsDisplayProps> = ({ results,
                   <th className="px-4 py-3 text-left font-medium text-gray-600 border-b">Duration (weeks)</th>
                   <th className="px-4 py-3 text-left font-medium text-gray-600 border-b">Visitors per variant</th>
                   <th className="px-4 py-3 text-left font-medium text-gray-600 border-b">MDE (relative)</th>
-                  <th className="px-4 py-3 text-left font-medium text-gray-600 border-b">Target CR</th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
@@ -231,7 +210,6 @@ export const TestResultsDisplay: React.FC<TestResultsDisplayProps> = ({ results,
                     </td>
                     <td className="px-4 py-3">{week.visitors_per_variant.toLocaleString()}</td>
                     <td className="px-4 py-3">{week.mde_relative}%</td>
-                    <td className="px-4 py-3">{week.target_rate ? formatConversionRate(week.target_rate) : '-'}</td>
                   </tr>
                 ))}
               </tbody>

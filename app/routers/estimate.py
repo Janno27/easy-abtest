@@ -76,7 +76,6 @@ async def calculate_weekly_evolution(
     - **visitors_per_variant**: Cumulative visitors per variant by this week
     - **mde_relative**: Minimum detectable effect (relative) that can be detected by this week
     - **status**: Classification as "too short", "optimal", or "too long"
-    - **target_cr**: Target conversion rate (baseline + relative improvement)
     """
     try:
         # Log the request
@@ -87,9 +86,6 @@ async def calculate_weekly_evolution(
         
         # Calculate baseline conversion rate
         baseline_rate = params["daily_conversions"] / params["daily_visits"]
-        
-        # Calculate target conversion rate (baseline + relative improvement)
-        target_cr = baseline_rate * (1 + params["expected_improvement"])
         
         # Calculate daily visitors per variant
         daily_visitors_per_variant = (params["daily_visits"] * params["traffic_allocation"]) / params["variations"]
@@ -155,8 +151,7 @@ async def calculate_weekly_evolution(
                 "week": week,
                 "visitors_per_variant": visitors_per_variant,
                 "mde_relative": round(mde_relative, 1),
-                "status": status,
-                "target_cr": target_cr
+                "status": status
             })
         
         # Log and return result
