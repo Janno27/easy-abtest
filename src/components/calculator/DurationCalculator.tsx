@@ -10,78 +10,7 @@ import {
   DialogTitle,
 } from '../ui/dialog';
 import { TestResultsDisplay } from './TestResultsDisplay';
-
-// Composant pour l'effet de bordure qui suit la souris
-const GradientBorderEffect = ({ 
-  children, 
-  className = "",
-  borderWidth = 1,
-  gradientColors = ["#9333ea", "#3b82f6", "#ec4899"],
-  gradientOpacity = 0.2
-}: { 
-  children: React.ReactNode, 
-  className?: string,
-  borderWidth?: number,
-  gradientColors?: string[],
-  gradientOpacity?: number
-}) => {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
-  
-  useEffect(() => {
-    const container = containerRef.current;
-    if (!container) return;
-    
-    // Fonction pour mettre à jour la position de la souris relativement au conteneur
-    const handleMouseMove = (e: MouseEvent) => {
-      const rect = container.getBoundingClientRect();
-      // Normalisation des coordonnées entre 0 et 1
-      const x = (e.clientX - rect.left) / rect.width;
-      const y = (e.clientY - rect.top) / rect.height;
-      setMousePosition({ x, y });
-    };
-    
-    // Surveiller les mouvements de souris sur toute la fenêtre
-    window.addEventListener('mousemove', handleMouseMove);
-    
-    return () => {
-      window.removeEventListener('mousemove', handleMouseMove);
-    };
-  }, []);
-  
-  // Calculer l'angle en fonction de la position de la souris
-  const angle = Math.atan2(mousePosition.y - 0.5, mousePosition.x - 0.5) * (180 / Math.PI);
-  
-  // Générer le style de dégradé linéaire avec les couleurs ajustées pour l'opacité
-  const gradientColorsWithOpacity = gradientColors.map(color => {
-    // Si le format est #rrggbb, convertir en rgba
-    if (color.startsWith('#') && color.length === 7) {
-      const r = parseInt(color.slice(1, 3), 16);
-      const g = parseInt(color.slice(3, 5), 16);
-      const b = parseInt(color.slice(5, 7), 16);
-      return `rgba(${r}, ${g}, ${b}, ${gradientOpacity})`;
-    }
-    return color; // Retourner tel quel si format différent
-  });
-  
-  const gradientStyle = {
-    "--gradient-angle": `${angle}deg`,
-    "--gradient-colors": gradientColorsWithOpacity.join(", "),
-    "--border-width": `${borderWidth}px`,
-  } as React.CSSProperties;
-  
-  return (
-    <div 
-      ref={containerRef} 
-      className={`gradient-border-container ${className}`} 
-      style={gradientStyle}
-    >
-      <div className="gradient-border-content">
-        {children}
-      </div>
-    </div>
-  );
-};
+import { GradientBorderEffect } from '../ui/GradientBorderEffect';
 
 // Composant réutilisable pour les tooltips
 const InfoTooltip = ({ content, size = "small" }: { content: React.ReactNode, size?: "small" | "large" }) => (
@@ -393,7 +322,7 @@ const DurationCalculator = () => {
         borderWidth={1}
         gradientOpacity={0.15}
       >
-        <div className="bg-white rounded-2xl p-8 shadow-sm">
+        <div className="bg-purple-50/30 rounded-2xl p-8 shadow-sm">
           <div className="grid grid-cols-2 gap-8">
             <div className="space-y-2">
               <label className="text-sm font-medium">Daily Visits</label>
@@ -802,28 +731,6 @@ const DurationCalculator = () => {
             right: auto;
             left: -240px;
           }
-        }
-        
-        /* Styles pour l'effet de bordure en dégradé */
-        .gradient-border-container {
-          position: relative;
-          padding: var(--border-width);
-          border-radius: 1rem;
-          background: linear-gradient(var(--gradient-angle), var(--gradient-colors));
-          --gradient-angle: 0deg;
-          --gradient-colors: rgba(147, 51, 234, 0.2), rgba(59, 130, 246, 0.2), rgba(236, 73, 153, 0.2);
-          --border-width: 1px;
-          transition: background 0.3s ease;
-        }
-        
-        .gradient-border-content {
-          background: white;
-          border-radius: calc(1rem - var(--border-width));
-          width: 100%;
-          height: 100%;
-          position: relative;
-          z-index: 2;
-          box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
         }
         `}
       </style>

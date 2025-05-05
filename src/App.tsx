@@ -3,6 +3,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from './components/ui/tabs';
 import DurationCalculator from './components/calculator/DurationCalculator';
 import { SettingsDialog } from './components/settings/SettingsDialog';
 import ResultsAnalysis from './components/results/ResultsAnalysis';
+import HypothesisAssistant from './components/hypothesis/HypothesisAssistant';
 
 function App() {
   const propertyId = 'demo-property-123';
@@ -31,6 +32,7 @@ function App() {
           <div className="flex justify-center">
             <TabsList>
               <TabsTrigger value="prioritization">Prioritization</TabsTrigger>
+              <TabsTrigger value="hypothesis">Hypothesis</TabsTrigger>
               <TabsTrigger value="calculator">Duration Calculator</TabsTrigger>
               <TabsTrigger value="results">Results Analysis</TabsTrigger>
             </TabsList>
@@ -42,6 +44,10 @@ function App() {
             </div>
           </TabsContent>
 
+          <TabsContent value="hypothesis">
+            <HypothesisAssistant />
+          </TabsContent>
+          
           <TabsContent value="calculator">
             <DurationCalculator />
           </TabsContent>
@@ -49,6 +55,7 @@ function App() {
           <TabsContent value="results">
             <ResultsAnalysis />
           </TabsContent>
+
         </Tabs>
       </div>
     </div>
