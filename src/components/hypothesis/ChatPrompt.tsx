@@ -2,21 +2,39 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Button } from '../ui/button';
 import { Send } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import Dropdown, { DropdownOption } from '../ui/dropdown';
 
 interface ChatPromptProps {
-  onSubmit: (message: string) => void;
+  onSubmit: (message: string, model?: string) => void;
   isLoading?: boolean;
   showHint?: boolean;
+  selectedModel?: string;
 }
+
+// Les modèles disponibles
+const MODEL_OPTIONS: DropdownOption[] = [
+  { value: 'llama', label: 'Llama 3' },
+  { value: 'deepseek', label: 'Deepseek' },
+  { value: 'deepseek-reasoner', label: 'Deepseek Reasoner' }
+];
 
 const ChatPrompt: React.FC<ChatPromptProps> = ({ 
   onSubmit, 
   isLoading = false,
-  showHint = true
+  showHint = true,
+  selectedModel
 }) => {
   const [message, setMessage] = useState('');
   const [isSending, setIsSending] = useState(false);
+  const [modelValue, setModelValue] = useState(selectedModel || 'deepseek');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  
+  // Mettre à jour modelValue si selectedModel change
+  useEffect(() => {
+    if (selectedModel && selectedModel !== modelValue) {
+      setModelValue(selectedModel);
+    }
+  }, [selectedModel]);
   
   // Automatically adjust textarea height
   useEffect(() => {
@@ -40,9 +58,13 @@ const ChatPrompt: React.FC<ChatPromptProps> = ({
       await new Promise(resolve => setTimeout(resolve, 250));
       setIsSending(false);
       
-      // Send the message to parent
-      onSubmit(messageToSend);
+      // Send the message to parent with the selected model
+      onSubmit(messageToSend, modelValue);
     }
+  };
+
+  const handleModelChange = (value: string) => {
+    setModelValue(value);
   };
 
   return (
@@ -78,7 +100,6 @@ const ChatPrompt: React.FC<ChatPromptProps> = ({
                 handleSubmit(e);
               }
             }}
-            disabled={isLoading}
           />
           
           <AnimatePresence>
@@ -108,6 +129,18 @@ const ChatPrompt: React.FC<ChatPromptProps> = ({
               </Button>
             </motion.div>
           </AnimatePresence>
+          
+          {/* Sélecteur de modèle discret */}
+          <div className="absolute left-3 bottom-2 z-10">
+            <Dropdown
+              value={modelValue}
+              onChange={handleModelChange}
+              options={MODEL_OPTIONS}
+              className="text-xs text-gray-500 bg-white"
+              disabled={isLoading}
+              transparent={true}
+            />
+          </div>
         </div>
         {showHint && (
           <p className="text-xs text-gray-500 mt-2 text-center">

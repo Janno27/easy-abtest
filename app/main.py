@@ -13,7 +13,7 @@ if parent_dir not in sys.path:
 
 # Maintenant on peut importer depuis 'app'
 from app.core.config import settings
-from app.routers import estimate
+from app.routers import estimate, hypothesis
 from app.core.logging import setup_logging
 
 # Setup logging
@@ -28,9 +28,12 @@ app = FastAPI(
 )
 
 # Configuration des CORS pour permettre les requêtes depuis le frontend
+# Définition manuelle des origines pour éviter les problèmes de configuration
+origins = ["http://localhost:3000", "http://localhost:8080", "http://localhost:5173", "*"]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.CORS_ORIGINS,
+    allow_origins=origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -47,6 +50,7 @@ async def log_requests(request, call_next):
 
 # Include routers
 app.include_router(estimate.router, tags=["estimate"])
+app.include_router(hypothesis.router, tags=["hypothesis"])
 
 @app.get("/")
 async def root():

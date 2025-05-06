@@ -11,6 +11,7 @@ import {
 } from '../ui/dialog';
 import { TestResultsDisplay } from './TestResultsDisplay';
 import { GradientBorderEffect } from '../ui/GradientBorderEffect';
+import Dropdown, { DropdownOption } from '../ui/dropdown';
 
 // Composant réutilisable pour les tooltips
 const InfoTooltip = ({ content, size = "small" }: { content: React.ReactNode, size?: "small" | "large" }) => (
@@ -239,12 +240,40 @@ const DurationCalculator = () => {
     </div>
   );
 
+  // Options pour les dropdowns
+  const variationsOptions: DropdownOption[] = [
+    { value: '2', label: '2 variations' },
+    { value: '3', label: '3 variations' },
+    { value: '4', label: '4 variations' },
+    { value: '5', label: '5 variations' }
+  ];
+  
+  const confidenceOptions: DropdownOption[] = [
+    { value: '80', label: '80%' },
+    { value: '85', label: '85%' },
+    { value: '90', label: '90%' },
+    { value: '95', label: '95%' },
+    { value: '99', label: '99%' }
+  ];
+
   const getCustomImprovementLabel = () => {
     if (customImprovementValue && expectedImprovement === customImprovementValue) {
       return `+${customImprovementValue}% (Custom)`;
     }
     return 'Custom value';
   };
+  
+  const improvementOptions: DropdownOption[] = [
+    { value: '1', label: '+1%' },
+    { value: '2', label: '+2%' },
+    { value: '3', label: '+3%' },
+    { value: '4', label: '+4%' },
+    { value: '5', label: '+5%' },
+    { value: '6', label: '+6%' },
+    { value: '7', label: '+7%' },
+    { value: '8', label: '+8%' },
+    { value: customImprovementValue || 'custom', label: getCustomImprovementLabel() }
+  ];
 
   // Fermeture des dropdowns lors des clics en dehors
   useEffect(() => {
@@ -266,53 +295,6 @@ const DurationCalculator = () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
   }, [isVisitsOpen, isConversionsOpen, isVariationsOpen, isImprovementOpen, isConfidenceOpen]);
-
-  // Dropdown personnalisé
-  const CustomDropdown = ({ 
-    value, 
-    onChange, 
-    options, 
-    isOpen, 
-    setIsOpen 
-  }: { 
-    value: string, 
-    onChange: (value: string) => void, 
-    options: { value: string, label: string }[], 
-    isOpen: boolean, 
-    setIsOpen: (isOpen: boolean) => void 
-  }) => {
-    const dropdownRef = useRef<HTMLDivElement>(null);
-    
-    return (
-      <div className="relative custom-dropdown" ref={dropdownRef}>
-        <div 
-          className="w-full px-4 py-2 rounded-lg border focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 flex justify-between items-center cursor-pointer"
-          onClick={() => setIsOpen(!isOpen)}
-        >
-          <span>{options.find(option => option.value === value)?.label || value}</span>
-          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={`transition-transform ${isOpen ? 'transform rotate-180' : ''}`}>
-            <polyline points="6 9 12 15 18 9"></polyline>
-          </svg>
-        </div>
-        {isOpen && (
-          <div className="absolute z-10 w-full mt-1 bg-white border rounded-lg shadow-lg max-h-60 overflow-auto">
-            {options.map(option => (
-              <div 
-                key={option.value} 
-                className="px-4 py-2 hover:bg-gray-100 cursor-pointer text-sm"
-                onClick={() => {
-                  onChange(option.value);
-                  setIsOpen(false);
-                }}
-              >
-                {option.label}
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-    );
-  };
 
   return (
     <div className="max-w-4xl mx-auto">
@@ -366,17 +348,11 @@ const DurationCalculator = () => {
                 <label className="text-sm font-medium">Number of Variations</label>
                 <InfoTooltip content={variationsTooltipContent} size="small" />
               </div>
-              <CustomDropdown
+              <Dropdown
                 value={variations}
                 onChange={setVariations}
-                isOpen={isVariationsOpen}
-                setIsOpen={setIsVariationsOpen}
-                options={[
-                  { value: '2', label: '2 variations' },
-                  { value: '3', label: '3 variations' },
-                  { value: '4', label: '4 variations' },
-                  { value: '5', label: '5 variations' }
-                ]}
+                options={variationsOptions}
+                className="bg-white"
               />
             </div>
 
@@ -421,39 +397,21 @@ const DurationCalculator = () => {
 
             <div className="space-y-2">
               <label className="text-sm font-medium">Expected Improvement</label>
-              <CustomDropdown
+              <Dropdown
                 value={expectedImprovement}
                 onChange={handleImprovementChange}
-                isOpen={isImprovementOpen}
-                setIsOpen={setIsImprovementOpen}
-                options={[
-                  { value: '1', label: '+1%' },
-                  { value: '2', label: '+2%' },
-                  { value: '3', label: '+3%' },
-                  { value: '4', label: '+4%' },
-                  { value: '5', label: '+5%' },
-                  { value: '6', label: '+6%' },
-                  { value: '7', label: '+7%' },
-                  { value: '8', label: '+8%' },
-                  { value: customImprovementValue || 'custom', label: getCustomImprovementLabel() }
-                ]}
+                options={improvementOptions}
+                className="bg-white"
               />
             </div>
 
             <div className="space-y-2">
               <label className="text-sm font-medium">Statistical Confidence</label>
-              <CustomDropdown
+              <Dropdown
                 value={confidence}
                 onChange={setConfidence}
-                isOpen={isConfidenceOpen}
-                setIsOpen={setIsConfidenceOpen}
-                options={[
-                  { value: '80', label: '80%' },
-                  { value: '85', label: '85%' },
-                  { value: '90', label: '90%' },
-                  { value: '95', label: '95%' },
-                  { value: '99', label: '99%' }
-                ]}
+                options={confidenceOptions}
+                className="bg-white"
               />
             </div>
             

@@ -7,6 +7,7 @@ A FastAPI service that calculates sample sizes and estimated durations for A/B t
 - Calculate required sample sizes for both Frequentist and Bayesian A/B tests
 - Support for one-sided and two-sided tests
 - Customizable statistical parameters (confidence, power, prior distributions)
+- AI-powered hypothesis formulation assistant with multiple LLM models support
 - Async API for high performance
 - Production-ready structure with logging, dependency injection, and comprehensive tests
 
@@ -27,6 +28,18 @@ source venv/bin/activate  # On Windows: venv\Scripts\activate
 3. Install dependencies:
 ```bash
 pip install -r requirements.txt
+```
+
+4. Configure your environment variables in a `.env` file:
+```
+# API Keys for LLMs
+HF_API_KEY=your_huggingface_api_key
+DEEPSEEK_API_KEY=your_deepseek_api_key
+
+# Model configurations
+HF_LLAMA_MODEL=meta-llama/Llama-3.3-70B-Instruct
+DEEPSEEK_API_URL=https://api.deepseek.com/v1/chat/completions
+DEEPSEEK_REASONER_MODEL=deepseek-ai/deepseek-reasoner-v1.5
 ```
 
 ## Usage
@@ -81,6 +94,47 @@ print(response.json())
   "estimated_days": 15
 }
 ```
+
+#### POST /hypothesis/generate
+
+Generate AI-assisted hypothesis formulation for A/B tests using different LLM models.
+
+**Example Request:**
+
+```python
+import requests
+
+url = "http://localhost:8000/hypothesis/generate"
+payload = {
+    "message": "J'ai l'impression que mon taux de conversion depuis la page produit a chuté, peut-être que la position du CTA est mal positionnée.",
+    "conversation_id": None,  # Optional: provide to continue a conversation
+    "message_history": [],    # Optional: previous messages in the conversation
+    "model": "deepseek"       # Options: "llama", "deepseek", "deepseek-reasoner"
+}
+response = requests.post(url, json=payload)
+print(response.json())
+```
+
+**Example Response:**
+
+```json
+{
+  "message": "Quelle page ou fonctionnalité spécifique semble poser problème? Pourriez-vous me donner plus de détails sur cette page produit?",
+  "conversation_id": "conv_1715007845123",
+  "timestamp": 1715007845.123456
+}
+```
+
+**Supported LLM Models:**
+- `llama`: Meta's Llama 3 model via Hugging Face API
+- `deepseek`: Standard Deepseek Chat model via Deepseek API
+- `deepseek-reasoner`: Deepseek Reasoner model (better for complex reasoning) via Deepseek API
+
+**Hypothesis Generation Process:**
+1. The API uses a structured prompt to guide the conversation
+2. It asks clarifying questions to gather all necessary information
+3. Once sufficient context is collected, it formulates a structured hypothesis
+4. The hypothesis follows the format: "If [change], then [metric] will [impact] because [mechanism], measured via [method]"
 
 ### Integration with Front-End
 

@@ -2,20 +2,20 @@ import React, { useState, useEffect, useRef } from 'react';
 import { GradientBorderEffect } from '../ui/GradientBorderEffect';
 import ChatPrompt from './ChatPrompt';
 import ChatFlow from './ChatFlow';
+import ResizeChat from './ResizeChat';
 import { ArrowLeft } from 'lucide-react';
-
-// Define message interface
-interface Message {
-  id: string;
-  role: 'user' | 'assistant';
-  content: string;
-  timestamp: number;
-}
+import { Message } from '../../types/types';
+import { hypothesisService } from '../../services/hypothesisService';
 
 const HypothesisAssistant = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [showInitialPrompt, setShowInitialPrompt] = useState(true);
+  const [conversationId, setConversationId] = useState<string | null>(null);
+  const [currentModel, setCurrentModel] = useState<string>('deepseek');
+  const [generatedTitle, setGeneratedTitle] = useState<string>("");
+  const [isGeneratingTitle, setIsGeneratingTitle] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(false);
   const chatContainerRef = useRef<HTMLDivElement>(null);
 
   // Scroll to bottom whenever messages change
@@ -25,9 +25,10 @@ const HypothesisAssistant = () => {
     }
   }, [messages]);
 
-  const handleSubmit = (message: string) => {
+  const handleSubmit = async (message: string, model = 'deepseek') => {
     // Generate unique ID
     const newId = `msg-${Date.now()}`;
+    const isFirstMessage = messages.length === 0;
     
     // Add user message
     const userMessage: Message = {
@@ -40,37 +41,64 @@ const HypothesisAssistant = () => {
     setMessages(prev => [...prev, userMessage]);
     setShowInitialPrompt(false);
     setIsLoading(true);
+    setCurrentModel(model);
     
-    // Simulate API response
-    setTimeout(() => {
-      const assistantMessage: Message = {
-        id: `msg-${Date.now()}`,
+    // Pour le premier message, générer un titre
+    if (isFirstMessage) {
+      setIsGeneratingTitle(true);
+      try {
+        const title = await hypothesisService.generateTitle(message, model);
+        setGeneratedTitle(title);
+      } catch (error) {
+        console.error('Error generating title:', error);
+        // Fallback à un titre simple
+        setGeneratedTitle(message.length > 30 ? message.substring(0, 30) + '...' : message);
+      } finally {
+        setIsGeneratingTitle(false);
+      }
+    }
+    
+    try {
+      // Call the API service to get a response
+      const response = await hypothesisService.generateResponse(
+        message,
+        conversationId,
+        messages,
+        model
+      );
+      
+      // Update the conversation ID if it's new
+      if (response.conversationId && !conversationId) {
+        setConversationId(response.conversationId);
+      }
+      
+      // Add the assistant's response to the messages
+      setMessages(prev => [...prev, response]);
+    } catch (error) {
+      console.error('Error getting response:', error);
+      
+      // Add a fallback error message
+      const errorMessage: Message = {
+        id: `error-${Date.now()}`,
         role: 'assistant',
-        content: generateResponse(message),
+        content: 'Sorry, I encountered an error. Please try again later.',
         timestamp: Date.now()
       };
       
-      setMessages(prev => [...prev, assistantMessage]);
+      setMessages(prev => [...prev, errorMessage]);
+    } finally {
       setIsLoading(false);
-    }, 1500);
+    }
   };
 
-  // Simple response generator (will be replaced by API)
-  const generateResponse = (message: string) => {
-    const responses = [
-      "That's an interesting problem to solve. Could you tell me what specific metric you want to improve?",
-      "I understand the change you're proposing. What business outcome are you trying to affect?",
-      "Based on your description, I can help formulate a hypothesis. What's your current conversion rate?",
-      "This seems like a good test opportunity. What has your research shown about this issue so far?"
-    ];
-    
-    return responses[Math.floor(Math.random() * responses.length)];
-  };
-
-  // Get a title based on the first user message
+  // Get a title based on the generated title or first user message
   const getChatTitle = () => {
+    if (generatedTitle) {
+      return generatedTitle;
+    }
+    
     const firstUserMessage = messages.find(msg => msg.role === 'user');
-    if (!firstUserMessage) return "New Hypothesis";
+    if (!firstUserMessage) return "Nouvelle hypothèse";
     
     // Truncate long messages
     const content = firstUserMessage.content;
@@ -81,10 +109,21 @@ const HypothesisAssistant = () => {
   const handleReset = () => {
     setShowInitialPrompt(true);
     setMessages([]);
+    setConversationId(null);
+    setGeneratedTitle("");
+  };
+
+  // Fonction pour gérer le redimensionnement de la fenêtre de chat
+  const handleResize = (expanded: boolean) => {
+    setIsExpanded(expanded);
   };
 
   return (
-    <div className="max-w-4xl mx-auto h-[calc(100vh-180px)]">
+    <div className={`mx-auto transition-all duration-300 ${
+      isExpanded 
+        ? 'max-w-5xl h-[calc(100vh-100px)] fixed top-[60px] left-0 right-0 z-50' 
+        : 'max-w-4xl h-[calc(100vh-180px)]'
+    }`}>
       <GradientBorderEffect 
         className="w-full h-full"
         gradientColors={["#9333ea", "#3b82f6", "#ec4899"]}
@@ -103,8 +142,26 @@ const HypothesisAssistant = () => {
                   <ArrowLeft className="h-4 w-4 text-gray-600" />
                 </button>
                 <h2 className="font-medium text-gray-800 truncate flex-1 text-sm">
-                  {getChatTitle()}
+                  {isGeneratingTitle ? (
+                    <span className="inline-flex items-center">
+                      <span className="w-3 h-3 mr-1.5 opacity-70">
+                        <svg className="animate-spin h-full w-full text-purple-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                      </span>
+                      {getChatTitle() || "Titre en cours..."}
+                    </span>
+                  ) : (
+                    getChatTitle()
+                  )}
                 </h2>
+                
+                {/* Bouton de redimensionnement */}
+                <ResizeChat 
+                  onResize={handleResize}
+                  isExpanded={isExpanded}
+                />
               </div>
             </div>
           )}
@@ -131,7 +188,7 @@ const HypothesisAssistant = () => {
               </div>
               
               <div className="transition-all duration-300 ease-in-out mb-4">
-                <ChatPrompt onSubmit={handleSubmit} isLoading={isLoading} showHint={true} />
+                <ChatPrompt onSubmit={handleSubmit} isLoading={isLoading} showHint={true} selectedModel={currentModel} />
               </div>
               <div className="flex-1"></div>
             </div>
@@ -141,11 +198,11 @@ const HypothesisAssistant = () => {
                 ref={chatContainerRef}
                 className="flex-grow overflow-y-auto transition-all duration-300 ease-in-out pb-6 -mt-4 pt-4"
               >
-                <ChatFlow messages={messages} />
+                <ChatFlow messages={messages} isLoading={isLoading} />
               </div>
               
               <div className="transition-all duration-300 ease-in-out mt-auto">
-                <ChatPrompt onSubmit={handleSubmit} isLoading={isLoading} showHint={false} />
+                <ChatPrompt onSubmit={handleSubmit} isLoading={isLoading} showHint={false} selectedModel={currentModel} />
               </div>
             </>
           )}
