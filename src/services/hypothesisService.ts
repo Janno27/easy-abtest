@@ -1,10 +1,4 @@
-import { Message } from '../types/types';
-
-interface HypothesisApiResponse {
-  message: string;
-  conversation_id: string;
-  timestamp: number;
-}
+import { Message, HypothesisApiResponse } from '../types/types';
 
 class HypothesisService {
   private apiUrl: string;
@@ -19,8 +13,7 @@ class HypothesisService {
   private formatMessagesForApi(messages: Message[]): any[] {
     return messages.map(msg => ({
       role: msg.role,
-      content: msg.content,
-      timestamp: msg.timestamp
+      content: msg.content
     }));
   }
   
@@ -63,14 +56,16 @@ class HypothesisService {
       const data: HypothesisApiResponse = await response.json();
       
       // Nettoyer le message pour supprimer "undefined" à la fin s'il est présent
-      const cleanedMessage = data.message?.replace(/undefined$/, '').trim() || '';
+      const cleanedMessage = data.message?.replace(/undefined$/g, '').replace(/undefined/g, '').trim() || '';
       
       return {
         id: `msg-${Date.now()}`,
         role: 'assistant',
         content: cleanedMessage,
         timestamp: data.timestamp * 1000, // Convert to milliseconds
-        conversationId: data.conversation_id
+        conversationId: data.conversation_id,
+        structuredData: data.structured_data,
+        lang_confidence: data.lang_confidence
       };
     } catch (error) {
       console.error('Error generating hypothesis:', error);
@@ -121,7 +116,7 @@ class HypothesisService {
       
       const data = await response.json();
       // Nettoyer le titre pour supprimer "undefined" à la fin s'il est présent
-      return data.title?.replace(/undefined$/, '').trim() || '';
+      return data.title?.replace(/undefined$/g, '').replace(/undefined/g, '').trim() || '';
     } catch (error) {
       console.error('Error generating title:', error);
       
@@ -131,22 +126,13 @@ class HypothesisService {
   }
   
   /**
-   * Create a fallback title from the first message if API call fails
+   * Create a simple fallback title from the first message
    */
   private createFallbackTitle(message: string): string {
-    // Simplify the message to create a basic title
-    const words = message.split(' ');
-    
-    // Try to get the first 4-6 words if they make sense
-    if (words.length <= 6) {
-      return message;
-    } else {
-      // Take first 30 characters and add ellipsis
-      const truncated = message.substring(0, 30).trim();
-      return truncated + (truncated.length < message.length ? '...' : '');
-    }
+    // Return a truncated version of the message if it's long
+    return message.length > 40 ? message.substring(0, 37) + '...' : message;
   }
 }
 
-// Export as singleton
+// Singleton instance
 export const hypothesisService = new HypothesisService(); 

@@ -4,6 +4,22 @@ export interface Message {
   content: string;
   timestamp: number;
   conversationId?: string;
+  structuredData?: {
+    tables?: Array<{
+      id: string;
+      headers: string[];
+      rows: Record<string, string>[];
+      alignments?: string[];
+    }>;
+    buttons?: Array<{
+      type: string;
+      text: string;
+      action: string;
+    }>;
+    charts?: any[];
+    interactive_elements?: any[];
+  };
+  lang_confidence?: number;
 }
 
 export interface StructuredHypothesis {
@@ -19,4 +35,12 @@ export interface HypothesisState {
   isLoading: boolean;
   conversationId: string | null;
   currentHypothesis: StructuredHypothesis | null;
+}
+
+export interface HypothesisApiResponse {
+  message: string;
+  conversation_id: string;
+  timestamp: number;
+  structured_data?: any;
+  lang_confidence?: number;
 } 

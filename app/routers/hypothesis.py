@@ -1,13 +1,18 @@
 from fastapi import APIRouter, HTTPException, Depends, BackgroundTasks, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 import httpx
 import os
 import time
 from app.core.config import Settings, get_settings
 from app.services.rate_limiter import RateLimiter
-import re
+from app.core.prompts import (
+    TITLE_GENERATION_PROMPT, 
+    get_prompt_by_message_position,
+    get_language_instruction
+)
+from app.core.language import detect_language, get_language_name
 
 router = APIRouter(
     prefix="/hypothesis",
@@ -31,6 +36,8 @@ class HypothesisResponse(BaseModel):
     message: str
     conversation_id: str
     timestamp: float
+    structured_data: Optional[Dict[str, Any]] = None
+    lang_confidence: Optional[float] = None
 
 class TitleResponse(BaseModel):
     title: str
@@ -91,133 +98,17 @@ async def generate_hypothesis(
         # Déterminer si c'est le premier message de l'utilisateur
         is_first_message = not request.message_history or len(request.message_history) <= 1
         
-        # Prompt principal avec instructions détaillées selon que c'est le premier message ou non
-        if is_first_message:
-            system_prompt = """# INSTRUCTION CRITIQUE SUR LA LANGUE - LIRE AVANT TOUT
-!!!ATTENTION!!! LA LANGUE DE RÉPONSE EST OBLIGATOIRE ET NON NÉGOCIABLE
-RÈGLE ABSOLUE: VOUS DEVEZ RÉPONDRE EXCLUSIVEMENT DANS LA LANGUE DU MESSAGE DE L'UTILISATEUR.
-
-- PREMIER PRINCIPE: Identifiez d'abord la langue utilisée par l'utilisateur
-- DEUXIÈME PRINCIPE: Répondez UNIQUEMENT et STRICTEMENT dans cette même langue
-- TROISIÈME PRINCIPE: Conservez cette langue tout au long de la conversation
-
-Exemples précis:
-- Utilisateur écrit en anglais → Vous DEVEZ répondre en anglais UNIQUEMENT
-- Utilisateur écrit en français → Vous DEVEZ répondre en français UNIQUEMENT
-- Utilisateur écrit en espagnol → Vous DEVEZ répondre en espagnol UNIQUEMENT
-- Utilisateur écrit en allemand → Vous DEVEZ répondre en allemand UNIQUEMENT
-
-CETTE RÈGLE PRIME SUR TOUTES LES AUTRES INSTRUCTIONS.
-TOUTE VIOLATION DE CETTE RÈGLE EST INACCEPTABLE.
-
-# Rôle: Expert en A/B Testing et formulation d'hypothèses
-            
-## Objectif
-Aider l'utilisateur à formuler une hypothèse structurée pour un test A/B en suivant une conversation naturelle et guidée.
-
-## Processus conversationnel
-1. ÉCOUTER d'abord le problème initial de l'utilisateur
-2. GUIDER la conversation de manière naturelle pour recueillir les informations nécessaires
-3. STRUCTURER l'hypothèse selon le format standard lorsque vous avez suffisamment d'informations
-
-## Informations à collecter au cours de la conversation
-- Page ou fonctionnalité spécifique concernée
-- URL ou emplacement dans le site/application (si applicable)
-- Métriques suivies et celles qui montrent des problèmes
-- Éléments déjà identifiés comme problématiques
-- Objectif principal: augmenter conversions, engagement, revenus, etc.
-- Public cible et comportement actuel des utilisateurs
-
-## Directives pour les données quantitatives
-- Demandez TOUJOURS à l'utilisateur de fournir ses propres données analytiques réelles (ne les inventez jamais)
-- Pour les estimations de trafic, demandez le nombre exact de visiteurs uniques quotidiens depuis leurs outils analytics
-- Pour les taux de conversion, demandez les chiffres réels selon le KPI mentionné
-- Guidez l'utilisateur pour extraire ces données de Google Analytics, Adobe Analytics, ou autre outil similaire
-- Utilisez uniquement ces données fournies pour calculer les effectifs statistiques nécessaires
-
-## Format de l'hypothèse finale
-"Si [changement spécifique], alors [métrique] [augmentera/diminuera] de [estimation] parce que [mécanisme], mesuré via [méthode]"
-
-## Directives de communication
-- Posez des questions conversationnelles et réagissez naturellement aux réponses
-- Évitez de poser plus d'une question à la fois
-- Utilisez le formatage markdown pour les réponses structurées
-- Adaptez-vous à la direction que prend la conversation
-- N'hésitez pas à suggérer des idées ou perspectives basées sur votre expertise
-
-# RAPPEL FINAL CRITIQUE: RÉPONDEZ UNIQUEMENT DANS LA LANGUE UTILISÉE PAR L'UTILISATEUR
-TOUTES vos réponses doivent être générées EXCLUSIVEMENT dans la langue qu'utilise l'utilisateur.
-Ceci est une exigence ABSOLUE et PRIORITAIRE sur toutes les autres instructions."""
-        else:
-            # Prompt pour la continuation de la conversation
-            system_prompt = """# INSTRUCTION CRITIQUE SUR LA LANGUE - LIRE AVANT TOUT
-!!!ATTENTION!!! LA LANGUE DE RÉPONSE EST OBLIGATOIRE ET NON NÉGOCIABLE
-RÈGLE ABSOLUE: VOUS DEVEZ RÉPONDRE EXCLUSIVEMENT DANS LA LANGUE DU MESSAGE DE L'UTILISATEUR.
-
-- PREMIER PRINCIPE: Identifiez d'abord la langue utilisée par l'utilisateur
-- DEUXIÈME PRINCIPE: Répondez UNIQUEMENT et STRICTEMENT dans cette même langue
-- TROISIÈME PRINCIPE: Conservez cette langue tout au long de la conversation
-
-Exemples précis:
-- Utilisateur écrit en anglais → Vous DEVEZ répondre en anglais UNIQUEMENT
-- Utilisateur écrit en français → Vous DEVEZ répondre en français UNIQUEMENT
-- Utilisateur écrit en espagnol → Vous DEVEZ répondre en espagnol UNIQUEMENT
-- Utilisateur écrit en allemand → Vous DEVEZ répondre en allemand UNIQUEMENT
-
-CETTE RÈGLE PRIME SUR TOUTES LES AUTRES INSTRUCTIONS.
-TOUTE VIOLATION DE CETTE RÈGLE EST INACCEPTABLE.
-
-# Rôle: Expert en A/B Testing et formulation d'hypothèses
-
-## Instruction
-Continuez la conversation de manière naturelle pour comprendre le besoin de l'utilisateur. Proposez une hypothèse structurée quand vous avez suffisamment d'informations, mais ne vous précipitez pas. Suivez le flux naturel de la discussion.
-
-## Objectifs clés
-- Comprendre le contexte spécifique du problème
-- Recueillir des détails sur les comportements utilisateurs et les métriques
-- Aider à formuler une hypothèse testable et concrète
-- Suggérer des approches de test appropriées
-
-## Directives pour les données quantitatives
-- Ne jamais inventer de chiffres ou d'estimations : demandez à l'utilisateur ses données réelles
-- Pour calculer les effectifs statistiques, demandez explicitement:
-  * Le nombre de visiteurs uniques quotidiens sur la page concernée
-  * Le nombre de conversions quotidiennes selon le KPI choisi
-  * La durée de test envisagée si pertinent
-- Encouragez l'utilisateur à consulter ses outils analytics (Google Analytics, Adobe, etc.)
-- Faites référence à des benchmarks du secteur uniquement pour contextualiser, jamais pour remplacer les données réelles
-
-## Format de l'hypothèse finale
-"Si [changement spécifique], alors [métrique] [augmentera/diminuera] de [estimation] parce que [mécanisme], mesuré via [méthode]"
-
-## Directives de communication
-- Utilisez le formatage markdown pour structurer vos réponses
-- Partagez votre expertise et vos insights au fil de la conversation
-- Adaptez votre niveau de détail à la complexité des réponses de l'utilisateur
-- Résumez les informations importantes quand c'est pertinent
-
-# RAPPEL FINAL CRITIQUE: RÉPONDEZ UNIQUEMENT DANS LA LANGUE UTILISÉE PAR L'UTILISATEUR
-TOUTES vos réponses doivent être générées EXCLUSIVEMENT dans la langue qu'utilise l'utilisateur.
-Ceci est une exigence ABSOLUE et PRIORITAIRE sur toutes les autres instructions."""
+        # Utiliser notre fonction de gestion de prompts selon la position du message
+        system_prompt = get_prompt_by_message_position(is_first_message)
         
-        # Détecter la langue de l'utilisateur et l'ajouter explicitement aux messages
+        # Détecter la langue de l'utilisateur avec notre module de détection
         user_message = request.message
-        detected_language = "undetermined"
-        
-        # Détection simplifiée de la langue basée sur des mots courants
-        if re.search(r'\b(the|is|are|and|to|for|in|on|with|that|it|this|have|has|from|you|would|could|should|can|will)\b', user_message.lower()):
-            detected_language = "english"
-        elif re.search(r'\b(le|la|les|un|une|des|et|est|sont|dans|pour|avec|sur|que|qui|quoi|ce|cette|ces|votre|vous|nous|je|tu|il|elle|ils|elles)\b', user_message.lower()):
-            detected_language = "french"
-        elif re.search(r'\b(el|la|los|las|un|una|unos|unas|y|es|son|en|para|con|sobre|que|quien|este|esta|estos|estas|tu|usted|yo|nosotros|ellos|ellas)\b', user_message.lower()):
-            detected_language = "spanish"
-        elif re.search(r'\b(der|die|das|ein|eine|und|ist|sind|in|für|mit|auf|dass|wer|was|dieser|diese|dieses|du|sie|ich|wir)\b', user_message.lower()):
-            detected_language = "german"
+        detected_language = detect_language(user_message)
         
         print(f"Detected language: {detected_language}")
         
         # Ajouter une instruction explicite pour la langue détectée
-        language_instruction = f"INSTRUCTION CRITIQUE: L'utilisateur communique en {detected_language}. Vous DEVEZ répondre UNIQUEMENT en {detected_language}."
+        language_instruction = get_language_instruction(detected_language)
         
         # Prepare the history for the API
         messages = []
@@ -242,7 +133,8 @@ Ceci est une exigence ABSOLUE et PRIORITAIRE sur toutes les autres instructions.
                 messages,
                 settings.hf_api_key,
                 settings.hf_llama_model,
-                conversation_id
+                conversation_id,
+                detected_language
             )
         elif model == "deepseek-reasoner":
             return await call_deepseek_api(
@@ -250,7 +142,8 @@ Ceci est une exigence ABSOLUE et PRIORITAIRE sur toutes les autres instructions.
                 settings.deepseek_api_key,
                 settings.deepseek_api_url,
                 conversation_id,
-                "deepseek-reasoner"
+                "deepseek-reasoner",
+                detected_language
             )
         else:  # deepseek standard
             return await call_deepseek_api(
@@ -258,7 +151,8 @@ Ceci est une exigence ABSOLUE et PRIORITAIRE sur toutes les autres instructions.
                 settings.deepseek_api_key,
                 settings.deepseek_api_url,
                 conversation_id,
-                "deepseek-chat"
+                "deepseek-chat",
+                detected_language
             )
             
     except Exception as e:
@@ -290,26 +184,11 @@ async def generate_title(
         print(f"Generating title with model: {model}")
         print(f"Message: {request.message[:50]}...")
         
-        # Système prompt spécifique pour générer un titre court et impactant
-        system_prompt = """# Instruction
-Génère un titre court et impactant (maximum 5-6 mots) basé sur ce premier message d'un utilisateur discutant d'un problème pour un test A/B.
-
-## IMPORTANT - LANGUE DE RÉPONSE
-VOUS DEVEZ GÉNÉRER LE TITRE DANS LA MÊME LANGUE QUE CELLE UTILISÉE PAR L'UTILISATEUR.
-- Si le message est en anglais, le titre doit être en anglais
-- Si le message est en français, le titre doit être en français
-- Si le message est dans une autre langue, le titre doit être dans cette même langue
-
-Ton titre doit:
-1. Être concis et direct (idéalement 3-5 mots)
-2. Capturer l'essence du problème ou de l'opportunité
-3. Inclure la page ou fonctionnalité concernée si mentionnée
-4. Mettre en évidence le problème principal ou l'objectif d'amélioration
-5. Utiliser un langage dynamique et professionnel
-6. Être dans la MÊME LANGUE que le message original
-
-N'ajoute PAS de guillemets, d'introduction ni de contexte. Donne UNIQUEMENT le titre.
-"""
+        # Utiliser le prompt pour la génération de titre
+        system_prompt = TITLE_GENERATION_PROMPT
+        
+        # Détecter la langue pour personnaliser la réponse
+        detected_language = detect_language(request.message)
         
         # Préparer la requête pour l'API
         messages = [
@@ -336,7 +215,7 @@ N'ajoute PAS de guillemets, d'introduction ni de contexte. Donne UNIQUEMENT le t
         print(f"Exception in generate_title: {error_message}")
         raise HTTPException(status_code=500, detail=error_message)
 
-async def call_huggingface_api(messages, api_key, model_name, conversation_id):
+async def call_huggingface_api(messages, api_key, model_name, conversation_id, detected_language="en"):
     """
     Appel à l'API Hugging Face pour le modèle Llama
     """
@@ -420,15 +299,20 @@ async def call_huggingface_api(messages, api_key, model_name, conversation_id):
             print(f"Unexpected response format: {data}")
             raise HTTPException(status_code=500, detail="Invalid response format from Hugging Face API")
         
+        # Extraire les éventuelles données structurées (tables, etc.)
+        structured_data = extract_structured_data(assistant_message)
+        
         # Return the result
         return HypothesisResponse(
             message=assistant_message,
             conversation_id=conversation_id,
-            timestamp=time.time()
+            timestamp=time.time(),
+            structured_data=structured_data,
+            lang_confidence=0.95 if detected_language in ['en', 'fr', 'es', 'de'] else 0.8
         )
 
 
-async def call_deepseek_api(messages, api_key, api_url, conversation_id, model_type="deepseek-chat"):
+async def call_deepseek_api(messages, api_key, api_url, conversation_id, model_type="deepseek-chat", detected_language="en"):
     """
     Appel à l'API Deepseek directement
     """
@@ -476,11 +360,16 @@ async def call_deepseek_api(messages, api_key, api_url, conversation_id, model_t
             print(f"Unexpected Deepseek response format: {data}")
             raise HTTPException(status_code=500, detail="Invalid response format from Deepseek API")
         
+        # Extraire les données structurées
+        structured_data = extract_structured_data(assistant_message)
+        
         # Return the result
         return HypothesisResponse(
             message=assistant_message,
             conversation_id=conversation_id,
-            timestamp=time.time()
+            timestamp=time.time(),
+            structured_data=structured_data,
+            lang_confidence=0.95 if detected_language in ['en', 'fr', 'es', 'de'] else 0.8
         )
 
 async def call_title_api(messages, api_key, api_url, model_type):
@@ -560,4 +449,88 @@ async def call_title_api(messages, api_key, api_url, model_type):
                     return "Nouvelle hypothèse"
     except Exception as e:
         print(f"Error in call_title_api: {str(e)}")
-        return "Nouvelle hypothèse" 
+        return "Nouvelle hypothèse"
+
+def extract_structured_data(text: str) -> Dict[str, Any]:
+    """
+    Extrait les données structurées (tableaux, graphiques) du texte markdown.
+    
+    Args:
+        text (str): Le texte markdown à analyser
+        
+    Returns:
+        Dict[str, Any]: Dictionnaire avec les éléments structurés extraits
+    """
+    # Initialiser le conteneur de données structurées
+    structured_data = {
+        "tables": extract_markdown_tables(text),
+        "buttons": [
+            {"type": "button", "text": "Calculer taille d'échantillon", "action": "calculate_sample_size"}
+        ]
+    }
+    
+    return structured_data
+
+def extract_markdown_tables(text: str) -> List[Dict[str, Any]]:
+    """
+    Extrait les tableaux markdown du texte.
+    
+    Args:
+        text (str): Le texte markdown à analyser
+        
+    Returns:
+        List[Dict[str, Any]]: Liste des tableaux extraits
+    """
+    import re
+    
+    tables = []
+    
+    # Recherche des tableaux markdown
+    table_pattern = r'\|(.+?)\|[\r\n]+\|([-:| ]+)\|[\r\n]+((?:\|.+\|[\r\n]+)+)'
+    
+    matches = re.finditer(table_pattern, text, re.DOTALL)
+    
+    for i, match in enumerate(matches):
+        try:
+            # Extraire les en-têtes, séparateurs et lignes
+            headers_raw = match.group(1).strip()
+            separators = match.group(2).strip()
+            rows_raw = match.group(3).strip()
+            
+            # Transformer les en-têtes en liste
+            headers = [h.strip() for h in headers_raw.split('|') if h.strip()]
+            
+            # Extraire les alignements à partir des séparateurs
+            alignments = []
+            for sep in separators.split('|'):
+                sep = sep.strip()
+                if sep.startswith(':') and sep.endswith(':'):
+                    alignments.append('center')
+                elif sep.endswith(':'):
+                    alignments.append('right')
+                else:
+                    alignments.append('left')
+            
+            # Transformer les lignes en liste de dictionnaires
+            rows = []
+            for row in rows_raw.split('\n'):
+                if not row.strip() or '|' not in row:
+                    continue
+                    
+                cols = [col.strip() for col in row.strip().split('|')[1:-1]]
+                if cols and len(cols) == len(headers):
+                    row_dict = {headers[j]: cols[j] for j in range(len(headers))}
+                    rows.append(row_dict)
+            
+            # Ajouter le tableau formaté
+            tables.append({
+                "id": f"table_{i+1}",
+                "headers": headers,
+                "rows": rows,
+                "alignments": alignments
+            })
+        except Exception as e:
+            print(f"Error extracting table: {str(e)}")
+            continue
+    
+    return tables 

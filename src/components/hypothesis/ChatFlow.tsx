@@ -124,6 +124,7 @@ const ChatFlow: React.FC<ChatFlowProps> = ({ messages, isLoading = false }) => {
                   content={message.content} 
                   typingSpeed={15}
                   className="text-sm"
+                  structuredData={message.structuredData}
                 />
               )}
               <div 
