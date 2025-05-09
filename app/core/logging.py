@@ -3,7 +3,7 @@ import sys
 from typing import List
 
 from loguru import logger
-from pydantic import BaseSettings
+from pydantic_settings import BaseSettings
 
 
 class LoggingSettings(BaseSettings):

@@ -1,4 +1,4 @@
-from pydantic import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 from typing import List
 from functools import lru_cache
 import os
@@ -70,10 +70,13 @@ class Settings(BaseSettings):
     # Redis settings (if used for caching)
     REDIS_URL: str = os.getenv("REDIS_URL", "")
 
-    class Config:
-        # Charger explicitement le même .env pour BaseSettings
-        env_file = env_path
-        case_sensitive = True
+    # Nouvelle syntaxe de configuration pour Pydantic v2
+    model_config = SettingsConfigDict(
+        env_file=env_path,
+        env_file_encoding="utf-8",
+        case_sensitive=True,
+        extra="ignore"
+    )
 
 @lru_cache()
 def get_settings() -> Settings:
