@@ -1,0 +1,40 @@
+/* Styles globaux */
+
+/* Animation pour le thinking indicator */
+@keyframes pulse {
+  0% { opacity: 1; }
+  50% { opacity: 0.5; }
+  100% { opacity: 1; }
+}
+
+@keyframes spinThinking {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* Animation pour les points de suspension */
+@keyframes dots {
+  0%, 20% { content: '.'; }
+  40% { content: '..'; }
+  60%, 100% { content: '...'; }
+}
+
+.thinking-dots::after {
+  content: '';
+  animation: dots 1.5s infinite;
+}
+
+.thinking-spinner {
+  animation: spinThinking 1.5s linear infinite;
+}
+
+.thinking-indicator {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.5rem 1rem;
+  background: #f3f4f6;
+  border-radius: 9999px;
+  font-size: 0.875rem;
+  color: #4b5563;
+  font-weight: 500;
+} 

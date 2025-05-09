@@ -3,6 +3,7 @@ import { GradientBorderEffect } from '../ui/GradientBorderEffect';
 import ChatPrompt from './ChatPrompt';
 import ChatFlow from './ChatFlow';
 import ResizeChat from './ResizeChat';
+import ThinkingSteps from './ThinkingSteps';
 import { ArrowLeft } from 'lucide-react';
 import { Message } from '../../types/types';
 import { hypothesisService } from '../../services/hypothesisService';
@@ -16,7 +17,16 @@ const HypothesisAssistant = () => {
   const [generatedTitle, setGeneratedTitle] = useState<string>("");
   const [isGeneratingTitle, setIsGeneratingTitle] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
+  const [showThinkingSteps, setShowThinkingSteps] = useState(false);
+  const [currentMessage, setCurrentMessage] = useState<string>("");
   const chatContainerRef = useRef<HTMLDivElement>(null);
+
+  // Styles globaux pour le markdown des messages
+  const markdownStyles = {
+    h2: { className: "font-bold text-base mt-6 mb-3" },
+    h3: { className: "font-bold text-sm mt-5 mb-2" },
+    table: { className: "mt-3 mb-5" },
+  };
 
   // Scroll to bottom whenever messages change
   useEffect(() => {
@@ -42,6 +52,8 @@ const HypothesisAssistant = () => {
     setShowInitialPrompt(false);
     setIsLoading(true);
     setCurrentModel(model);
+    setShowThinkingSteps(true);
+    setCurrentMessage(message);
     
     // Pour le premier message, générer un titre
     if (isFirstMessage) {
@@ -88,6 +100,8 @@ const HypothesisAssistant = () => {
       setMessages(prev => [...prev, errorMessage]);
     } finally {
       setIsLoading(false);
+      // Cacher les étapes de réflexion après un court délai
+      setTimeout(() => setShowThinkingSteps(false), 1000);
     }
   };
 
@@ -111,6 +125,8 @@ const HypothesisAssistant = () => {
     setMessages([]);
     setConversationId(null);
     setGeneratedTitle("");
+    setShowThinkingSteps(false);
+    setCurrentMessage("");
   };
 
   // Fonction pour gérer le redimensionnement de la fenêtre de chat
@@ -198,7 +214,22 @@ const HypothesisAssistant = () => {
                 ref={chatContainerRef}
                 className="flex-grow overflow-y-auto transition-all duration-300 ease-in-out pb-6 -mt-4 pt-4"
               >
-                <ChatFlow messages={messages} isLoading={isLoading} />
+                <ChatFlow 
+                  messages={messages} 
+                  isLoading={isLoading} 
+                  markdownStyles={markdownStyles}
+                />
+                
+                {/* Intégrer ThinkingSteps juste après l'indicateur de réflexion */}
+                {isLoading && (
+                  <ThinkingSteps 
+                    conversationId={conversationId || undefined}
+                    message={currentMessage}
+                    messageHistory={messages}
+                    model={currentModel}
+                    isVisible={showThinkingSteps && isLoading}
+                  />
+                )}
               </div>
               
               <div className="transition-all duration-300 ease-in-out mt-auto">

@@ -33,15 +33,15 @@ const Table: React.FC<TableProps> = ({
   };
 
   return (
-    <div className={`overflow-x-auto rounded-md border border-gray-200 ${className}`}>
+    <div className={`overflow-hidden rounded-lg border border-gray-200 shadow-sm mb-4 bg-white ${className}`}>
       <table className="min-w-full divide-y divide-gray-200">
-        <thead className="bg-gray-50">
+        <thead className="bg-gray-100">
           <tr>
             {headers.map((header, index) => (
               <th
                 key={`${id}-th-${index}`}
                 scope="col"
-                className={`px-3 py-2 text-xs font-medium text-gray-700 uppercase tracking-wider ${getAlignmentClass(resolvedAlignments[index])} ${index === headers.length - 1 ? '' : 'border-r border-gray-200'}`}
+                className={`px-4 py-3 text-xs font-semibold text-gray-700 uppercase tracking-wider ${getAlignmentClass(resolvedAlignments[index])} ${index === headers.length - 1 ? '' : 'border-r border-gray-200'}`}
               >
                 {header}
               </th>
@@ -52,12 +52,12 @@ const Table: React.FC<TableProps> = ({
           {rows.map((row, rowIndex) => (
             <tr 
               key={`${id}-tr-${rowIndex}`}
-              className={rowIndex % 2 === 0 ? 'bg-white' : 'bg-gray-50'}
+              className={rowIndex % 2 === 0 ? 'bg-white hover:bg-gray-50' : 'bg-gray-50 hover:bg-gray-100'}
             >
               {headers.map((header, colIndex) => (
                 <td
                   key={`${id}-td-${rowIndex}-${colIndex}`}
-                  className={`px-3 py-2 text-sm text-gray-900 ${getAlignmentClass(resolvedAlignments[colIndex])} ${colIndex === headers.length - 1 ? '' : 'border-r border-gray-100'}`}
+                  className={`px-4 py-3 text-sm text-gray-800 ${getAlignmentClass(resolvedAlignments[colIndex])} ${colIndex === headers.length - 1 ? '' : 'border-r border-gray-100'}`}
                 >
                   {row[header]}
                 </td>

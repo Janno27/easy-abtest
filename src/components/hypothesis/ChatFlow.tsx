@@ -6,9 +6,18 @@ import remarkGfm from 'remark-gfm';
 import rehypeRaw from 'rehype-raw';
 import ProgressiveMessage from './ProgressiveMessage';
 
+// Type pour les styles de markdown
+export interface MarkdownStyles {
+  h2?: { className: string };
+  h3?: { className: string };
+  table?: { className: string };
+  [key: string]: { className: string } | undefined;
+}
+
 interface ChatFlowProps {
   messages: Message[];
   isLoading?: boolean;
+  markdownStyles?: MarkdownStyles;
 }
 
 // Composant d'indicateur de "thinking" simplifié avec effet dégradé
@@ -56,7 +65,7 @@ const ThinkingIndicator: React.FC<{messages: Message[]}> = ({ messages }) => {
   );
 };
 
-const ChatFlow: React.FC<ChatFlowProps> = ({ messages, isLoading = false }) => {
+const ChatFlow: React.FC<ChatFlowProps> = ({ messages, isLoading = false, markdownStyles }) => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [renderedMessages, setRenderedMessages] = useState<string[]>([]);
 
@@ -125,6 +134,7 @@ const ChatFlow: React.FC<ChatFlowProps> = ({ messages, isLoading = false }) => {
                   typingSpeed={15}
                   className="text-sm"
                   structuredData={message.structuredData}
+                  markdownStyles={markdownStyles}
                 />
               )}
               <div 

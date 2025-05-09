@@ -10,6 +10,9 @@ A modern calculator for A/B test sample size and duration estimation, with suppo
 - One-sided and two-sided tests
 - Detailed calculation step-by-step explanations
 - Interactive UI with responsive design
+- AI-powered hypothesis formulation assistant
+- Real-time LLM reasoning visualization with animated timeline
+- Multi-language support (FR/EN/ES/DE) with automatic detection
 
 ## Setup and Configuration
 
@@ -75,6 +78,38 @@ This calculator frontend integrates with a FastAPI backend for calculations. The
 - Response matching `EstimateResponse` schema
 
 See [API Documentation](https://github.com/yourusername/ab-test-calculator-api) for details.
+
+## Real-time LLM Reasoning Component
+
+The application includes a `ThinkingSteps` component that visualizes the reasoning process of LLMs (Large Language Models) during hypothesis generation. This feature:
+
+- Displays a live animated timeline of the AI's thought process
+- Streams reasoning content in real-time via Server-Sent Events (SSE)
+- Adapts to the user's language automatically (French, English, Spanish, German)
+- Shows the detailed reasoning chain from DeepSeek Reasoner model
+- Provides automatic scrolling for real-time content updates
+- Includes robust error handling with user-friendly messages
+
+### Technical implementation highlights:
+
+1. **Frontend Component**: 
+   - React-based timeline with animated dots and connectors
+   - Framer Motion animations for smooth transitions
+   - Automatic language detection for UI elements
+   - Real-time scrolling with content updates
+   - Efficient event-based streaming with EventSource API
+
+2. **Backend Support**:
+   - FastAPI SSE endpoint for streaming reasoning content
+   - Multi-language support with automatic detection
+   - Robust error handling and reconnection logic
+   - DeepSeek API integration with streaming capabilities
+
+3. **User Experience**:
+   - Discrete styling with smaller font and subtle colors
+   - Monospace font for reasoning content readability
+   - Automatic scrolling for continuous updates
+   - Language-aware status messages and labels
 
 ## Deployment
 

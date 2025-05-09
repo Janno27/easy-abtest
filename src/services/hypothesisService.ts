@@ -132,6 +132,126 @@ class HypothesisService {
     // Return a truncated version of the message if it's long
     return message.length > 40 ? message.substring(0, 37) + '...' : message;
   }
+
+  /**
+   * Stream hypothesis generation steps with SSE
+   * @param message Le message de l'utilisateur
+   * @param conversationId ID de la conversation existante
+   * @param messageHistory Historique des messages
+   * @param model Modèle LLM à utiliser (deepseek, etc.)
+   * @param callback Fonction callback appelée à chaque événement
+   * @returns Une fonction pour fermer la connexion SSE
+   */
+  streamHypothesis(
+    message: string,
+    conversationId: string | null | undefined,
+    messageHistory: Message[],
+    model: string = 'deepseek-reasoner',
+    callback: (event: any) => void,
+    onError: (error: string) => void
+  ): () => void {
+    // Créer un EventSource pour la connexion SSE
+    // Note: les paramètres sont envoyés dans l'URL car certains navigateurs ne supportent pas
+    // la configuration des EventSource avec un corps de requête
+    const params = new URLSearchParams();
+    params.append('message', message);
+    if (conversationId) {
+      params.append('conversation_id', conversationId);
+    }
+    params.append('model', model);
+    
+    // Ajout d'un timestamp pour éviter les problèmes de cache
+    params.append('_t', Date.now().toString());
+    
+    // Créer l'URL avec les paramètres
+    const url = `${this.apiUrl}/hypothesis/stream?${params.toString()}`;
+    
+    console.log("Connecting to SSE:", url);
+    
+    // Options pour l'EventSource
+    const eventSourceInitDict = { 
+      withCredentials: false 
+    };
+    
+    // Initialisation de l'EventSource avec options
+    let eventSource: EventSource | null = null;
+    
+    try {
+      eventSource = new EventSource(url, eventSourceInitDict);
+      
+      // Variable pour suivre les reconnexions
+      let retryCount = 0;
+      const MAX_RETRIES = 3; // Augmenté pour plus de fiabilité
+      
+      // Gestion des événements SSE
+      eventSource.onmessage = (event) => {
+        try {
+          // Réinitialiser le compteur de reconnexions en cas de succès
+          retryCount = 0;
+          
+          // Vérifier si c'est un message [DONE] de fin de stream
+          if (event.data === "[DONE]") {
+            console.log("Stream completed with [DONE] message");
+            if (eventSource) {
+              eventSource.close();
+            }
+            return;
+          }
+          
+          // Analyse des données JSON et transmission au callback
+          const data = JSON.parse(event.data);
+          callback(data);
+        } catch (error) {
+          console.error("Erreur lors du parsing des données SSE:", error);
+          // Ne pas appeler onError ici pour éviter de fermer la connexion 
+          // sur une erreur de parsing - cela peut arriver pour des messages spéciaux
+        }
+      };
+      
+      // Gestion de l'ouverture de connexion
+      eventSource.onopen = (event) => {
+        console.log("SSE connection opened successfully");
+        retryCount = 0; // Réinitialiser le compteur
+      };
+      
+      // Gestion des erreurs
+      eventSource.onerror = (error) => {
+        console.error("Erreur de connexion SSE:", error);
+        
+        // Vérifier si la connexion est fermée
+        if (eventSource && eventSource.readyState === EventSource.CLOSED) {
+          console.log("SSE connection is closed");
+          
+          // Si trop de tentatives, abandonner
+          if (retryCount >= MAX_RETRIES) {
+            onError("Erreur de connexion au serveur après plusieurs tentatives");
+            if (eventSource) {
+              eventSource.close();
+            }
+          } else {
+            console.log(`Tentative de reconnexion SSE (${retryCount + 1}/${MAX_RETRIES})...`);
+            retryCount++;
+            // La reconnexion est gérée automatiquement par EventSource
+          }
+        }
+      };
+    } catch (error) {
+      console.error("Erreur lors de la création de l'EventSource:", error);
+      onError("Erreur lors de l'initialisation de la connexion au serveur");
+      if (eventSource) {
+        eventSource.close();
+      }
+    }
+    
+    // Retourne une fonction pour fermer la connexion
+    return () => {
+      console.log("Fermeture de la connexion SSE");
+      if (eventSource) {
+        eventSource.close();
+        eventSource = null;
+      }
+    };
+  }
 }
 
 // Singleton instance

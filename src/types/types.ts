@@ -43,4 +43,11 @@ export interface HypothesisApiResponse {
   timestamp: number;
   structured_data?: any;
   lang_confidence?: number;
+}
+
+export interface ThinkingEvent {
+  step: string;
+  status: 'processing' | 'completed' | 'error';
+  details?: string;
+  reasoning_content?: string;
 } 

@@ -8,6 +8,8 @@ A FastAPI service that calculates sample sizes and estimated durations for A/B t
 - Support for one-sided and two-sided tests
 - Customizable statistical parameters (confidence, power, prior distributions)
 - AI-powered hypothesis formulation assistant with multiple LLM models support
+- Real-time LLM reasoning visualization with Server-Sent Events (SSE)
+- Multi-language support (FR/EN/ES/DE) with automatic language detection
 - Async API for high performance
 - Production-ready structure with logging, dependency injection, and comprehensive tests
 
@@ -125,6 +127,70 @@ print(response.json())
 }
 ```
 
+#### GET /hypothesis/stream
+
+Stream LLM reasoning steps in real-time using Server-Sent Events (SSE).
+
+**Example Request:**
+
+```javascript
+// Frontend JavaScript using EventSource
+const params = new URLSearchParams();
+params.append('message', 'Comment optimiser la page d\'accueil de mon site e-commerce?');
+params.append('model', 'deepseek-reasoner');
+
+const url = `http://localhost:8000/hypothesis/stream?${params.toString()}`;
+const eventSource = new EventSource(url);
+
+eventSource.onmessage = (event) => {
+  try {
+    // Vérifier si c'est un message [DONE] de fin de stream
+    if (event.data === "[DONE]") {
+      console.log("Stream completed");
+      eventSource.close();
+      return;
+    }
+    
+    // Traiter les données JSON
+    const data = JSON.parse(event.data);
+    console.log("Thinking step:", data);
+    // Afficher les données dans l'interface utilisateur
+    updateUI(data);
+  } catch (error) {
+    console.error("Error processing stream data:", error);
+  }
+};
+
+eventSource.onerror = (error) => {
+  console.error("SSE Error:", error);
+  eventSource.close();
+};
+```
+
+**Stream Response Format:**
+
+Le stream renvoie une série de messages SSE contenant des objets JSON formatés comme suit:
+
+```json
+{
+  "step": "reasoning",
+  "status": "processing",
+  "reasoning_content": "Pour optimiser la page d'accueil d'un site e-commerce, je dois considérer plusieurs aspects:\n1. La clarté de la proposition de valeur\n2. L'efficacité du parcours utilisateur..."
+}
+```
+
+Suivi d'un message final:
+
+```
+data: [DONE]
+```
+
+**Caractéristiques du stream:**
+- Détection automatique de la langue (FR/EN/ES/DE)
+- Messages adaptés à la langue détectée
+- Gestion des erreurs avec messages appropriés
+- Signal de fin de stream avec [DONE]
+
 **Supported LLM Models:**
 - `llama`: Meta's Llama 3 model via Hugging Face API
 - `deepseek`: Standard Deepseek Chat model via Deepseek API
@@ -177,6 +243,69 @@ const calculateDuration = async () => {
   }
 };
 ```
+
+### Real-time LLM Reasoning Component
+
+Le backend inclut un endpoint de streaming SSE `/hypothesis/stream` qui permet de visualiser en temps réel le processus de réflexion du modèle LLM lors de la génération d'hypothèses. Ce composant:
+
+1. Utilise Server-Sent Events (SSE) pour une communication en temps réel
+2. Gère les timeouts et reconnexions automatiques
+3. Supporte la mise en forme du contenu de raisonnement pour une présentation claire
+4. S'adapte automatiquement à la langue de l'utilisateur (français, anglais, espagnol, allemand)
+5. Inclut le traitement d'erreurs robuste côté serveur et client
+
+**Détails techniques backend:**
+- Asynchrone avec FastAPI et httpx pour les requêtes API
+- Optimisation des performances avec streaming de faible latence
+- Gestion sécurisée des clés API via injection de dépendances
+- Headers CORS configurés pour permettre l'accès depuis différentes origines
+- Signaux [DONE] pour indiquer la fin du stream et éviter les connexions pendantes
+
+## Architecture du code
+
+Le projet suit une architecture modulaire pour faciliter la maintenance et l'évolution du code:
+
+### Structure des dossiers
+
+```
+app/
+├── core/                 # Fonctionnalités centrales (config, logging, etc.)
+├── routers/              # Définition des routes API
+│   ├── estimate.py       # Endpoints pour le calcul d'estimations A/B test 
+│   ├── hypothesis/       # Module pour la génération d'hypothèses (modulaire)
+│   │   ├── __init__.py   # Exports du module
+│   │   ├── router.py     # Définitions des routes et des endpoints
+│   │   ├── models.py     # Modèles de données Pydantic
+│   │   ├── streaming.py  # Fonctions liées au streaming SSE
+│   │   ├── api_calls.py  # Appels aux API externes (Hugging Face, Deepseek)
+│   │   └── data_extraction.py  # Extraction de données structurées
+│   └── hypothesis.py     # Import du router depuis le module hypothesis
+├── services/             # Services réutilisables
+├── models/               # Modèles de données partagés
+├── tests/                # Tests unitaires et d'intégration
+└── main.py               # Point d'entrée de l'application
+```
+
+### Architecture modulaire
+
+La fonctionnalité de génération d'hypothèses a été réorganisée en modules spécifiques pour:
+
+1. **Séparation des préoccupations** : Chaque fichier a une responsabilité unique
+   - `router.py` : Contient uniquement les définitions de routes
+   - `models.py` : Définit les modèles de données d'entrée/sortie
+   - `streaming.py` : Gère le streaming des données SSE
+   - `api_calls.py` : Encapsule les appels aux API externes
+   - `data_extraction.py` : S'occupe de l'extraction des données structurées
+
+2. **Scalabilité** : L'architecture permet d'ajouter facilement de nouvelles fonctionnalités ou de modifier les existantes sans affecter l'ensemble du système
+
+3. **Testabilité** : Les modules isolés sont plus faciles à tester unitairement
+
+4. **Maintenabilité** : Code plus lisible avec des fichiers plus courts et mieux organisés
+
+5. **Réutilisabilité** : Les composants peuvent être réutilisés dans d'autres parties de l'application
+
+Cette architecture modulaire facilite considérablement l'extension des fonctionnalités et la maintenance du code à long terme.
 
 ## Testing
 
