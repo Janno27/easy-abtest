@@ -10,6 +10,8 @@ A FastAPI service that calculates sample sizes and estimated durations for A/B t
 - AI-powered hypothesis formulation assistant with multiple LLM models support
 - Real-time LLM reasoning visualization with Server-Sent Events (SSE)
 - Multi-language support (FR/EN/ES/DE) with automatic language detection
+- Integration with external A/B testing platforms (AB Tasty) via API
+- Support for CSV data import for manual test analysis
 - Async API for high performance
 - Production-ready structure with logging, dependency injection, and comprehensive tests
 
@@ -42,6 +44,9 @@ DEEPSEEK_API_KEY=your_deepseek_api_key
 HF_LLAMA_MODEL=meta-llama/Llama-3.3-70B-Instruct
 DEEPSEEK_API_URL=https://api.deepseek.com/v1/chat/completions
 DEEPSEEK_REASONER_MODEL=deepseek-ai/deepseek-reasoner-v1.5
+
+# Config directory for storing user API keys
+CONFIG_DIR=./config
 ```
 
 ## Usage
@@ -167,6 +172,95 @@ eventSource.onerror = (error) => {
 };
 ```
 
+#### GET /api/external/abtasty/tests
+
+Récupère la liste des tests AB Tasty depuis l'API officielle.
+
+**Exemple de requête:**
+
+```python
+import requests
+
+url = "http://localhost:8000/api/external/abtasty/tests"
+headers = {"Authorization": "Bearer your_auth_token"}  # Si authentification configurée
+response = requests.get(url, headers=headers)
+print(response.json())
+```
+
+**Exemple de réponse:**
+
+```json
+[
+  {
+    "id": "12345",
+    "name": "Test CTA Homepage",
+    "status": "running",
+    "traffic_allocation": 0.5,
+    "variations": [
+      {
+        "id": "var1",
+        "name": "Control",
+        "visitors": 1500,
+        "conversions": 150
+      },
+      {
+        "id": "var2",
+        "name": "Variation 1",
+        "visitors": 1450,
+        "conversions": 160
+      }
+    ]
+  }
+]
+```
+
+#### POST /api/imports/upload/csv
+
+Importe et traite des données de test A/B à partir d'un fichier CSV.
+
+**Exemple de requête:**
+
+```python
+import requests
+
+url = "http://localhost:8000/api/imports/upload/csv"
+files = {"file": open("test_data.csv", "rb")}
+response = requests.post(url, files=files)
+print(response.json())
+```
+
+**Format CSV attendu:**
+
+```csv
+test_name,variation,visitors,conversions
+Test Homepage,Control,1200,120
+Test Homepage,Variation 1,1180,130
+```
+
+**Exemple de réponse:**
+
+```json
+{
+  "success": true,
+  "filename": "test_data.csv",
+  "row_count": 2,
+  "data": [
+    {
+      "test_name": "Test Homepage",
+      "variation": "Control",
+      "visitors": "1200",
+      "conversions": "120"
+    },
+    {
+      "test_name": "Test Homepage",
+      "variation": "Variation 1",
+      "visitors": "1180",
+      "conversions": "130"
+    }
+  ]
+}
+```
+
 **Stream Response Format:**
 
 Le stream renvoie une série de messages SSE contenant des objets JSON formatés comme suit:
@@ -244,6 +338,20 @@ const calculateDuration = async () => {
 };
 ```
 
+### Configuration des API externes
+
+Pour configurer vos clés API pour les services externes, vous pouvez utiliser la section Settings de l'application frontend ou créer manuellement un fichier de configuration:
+
+1. Créez un fichier `config/user_api_keys.json` avec le contenu suivant:
+
+```json
+{
+  "abtasty": "votre_clé_api_abtasty"
+}
+```
+
+2. Assurez-vous que le dossier `config` est accessible en lecture/écriture par l'application.
+
 ### Real-time LLM Reasoning Component
 
 Le backend inclut un endpoint de streaming SSE `/hypothesis/stream` qui permet de visualiser en temps réel le processus de réflexion du modèle LLM lors de la génération d'hypothèses. Ce composant:
@@ -269,7 +377,11 @@ Le projet suit une architecture modulaire pour faciliter la maintenance et l'év
 
 ```
 app/
-├── core/                 # Fonctionnalités centrales (config, logging, etc.)
+├── core/                 # Fonctionnalités centrales (config, logging, auth, etc.)
+│   ├── __init__.py       # Exports du module
+│   ├── config.py         # Configuration de l'application
+│   ├── logging.py        # Configuration des logs
+│   └── auth.py           # Gestion d'authentification et des clés API
 ├── routers/              # Définition des routes API
 │   ├── estimate.py       # Endpoints pour le calcul d'estimations A/B test 
 │   ├── hypothesis/       # Module pour la génération d'hypothèses (modulaire)
@@ -279,8 +391,12 @@ app/
 │   │   ├── streaming.py  # Fonctions liées au streaming SSE
 │   │   ├── api_calls.py  # Appels aux API externes (Hugging Face, Deepseek)
 │   │   └── data_extraction.py  # Extraction de données structurées
-│   └── hypothesis.py     # Import du router depuis le module hypothesis
+│   ├── hypothesis.py     # Import du router depuis le module hypothesis
+│   ├── external_apis.py  # Endpoints pour l'intégration avec des outils externes (AB Tasty, etc.)
+│   └── imports.py        # Endpoints pour l'importation de données (CSV, etc.)
 ├── services/             # Services réutilisables
+│   ├── base_external_service.py  # Interface abstraite pour les services d'API externes
+│   └── abtasty_service.py        # Service client pour l'API AB Tasty
 ├── models/               # Modèles de données partagés
 ├── tests/                # Tests unitaires et d'intégration
 └── main.py               # Point d'entrée de l'application
@@ -288,22 +404,24 @@ app/
 
 ### Architecture modulaire
 
-La fonctionnalité de génération d'hypothèses a été réorganisée en modules spécifiques pour:
+L'architecture a été conçue pour être modulaire et extensible:
 
 1. **Séparation des préoccupations** : Chaque fichier a une responsabilité unique
    - `router.py` : Contient uniquement les définitions de routes
    - `models.py` : Définit les modèles de données d'entrée/sortie
-   - `streaming.py` : Gère le streaming des données SSE
-   - `api_calls.py` : Encapsule les appels aux API externes
-   - `data_extraction.py` : S'occupe de l'extraction des données structurées
+   - `service.py` : Contient la logique métier
 
-2. **Scalabilité** : L'architecture permet d'ajouter facilement de nouvelles fonctionnalités ou de modifier les existantes sans affecter l'ensemble du système
+2. **Abstraction pour les services externes** : La classe abstraite `ExternalService` permet d'ajouter facilement de nouveaux services API:
+   - Implémentez simplement l'interface pour ajouter d'autres outils comme VWO, Google Optimize, etc.
+   - Standardisation des données entre différentes plateformes
 
-3. **Testabilité** : Les modules isolés sont plus faciles à tester unitairement
+3. **Gestion des configurations** : Le module `core/auth.py` centralise la gestion des clés API
+   - Les clés sont récupérées depuis un fichier de configuration séparé
+   - Sécurité améliorée avec les dépendances FastAPI
 
-4. **Maintenabilité** : Code plus lisible avec des fichiers plus courts et mieux organisés
-
-5. **Réutilisabilité** : Les composants peuvent être réutilisés dans d'autres parties de l'application
+4. **Import de données flexibles** : Le module `imports.py` permet l'importation de données au format CSV
+   - Validation des champs requis
+   - Gestion des erreurs d'encodage et de format
 
 Cette architecture modulaire facilite considérablement l'extension des fonctionnalités et la maintenance du code à long terme.
 

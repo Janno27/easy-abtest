@@ -13,7 +13,11 @@ if parent_dir not in sys.path:
 
 # Maintenant on peut importer depuis 'app'
 from app.core.config import settings
-from app.routers import estimate, hypothesis
+from app.routers import estimate
+from app.routers import hypothesis
+from app.routers import external_apis
+from app.routers import imports
+from app.routers import settings as settings_router
 from app.core.logging import setup_logging
 
 # Setup logging
@@ -51,6 +55,9 @@ async def log_requests(request, call_next):
 # Include routers
 app.include_router(estimate.router, tags=["estimate"])
 app.include_router(hypothesis.router, tags=["hypothesis"])
+app.include_router(external_apis.router, tags=["external APIs"])
+app.include_router(imports.router, tags=["imports"])
+app.include_router(settings_router.router, tags=["settings"])
 
 @app.get("/")
 async def root():

@@ -227,72 +227,88 @@ async def stream_hypothesis(
             yield f"data: {json.dumps(step.dict())}\n\n"
             
             # Stream la réponse de DeepSeek
-            async for chunk in stream_deepseek_response(
-                messages,
-                settings.deepseek_api_key,
-                settings.deepseek_api_url,
-                model,
-                detected_language
-            ):
-                yield f"data: {json.dumps(chunk.dict())}\n\n"
-                # Réduire le délai pour accélérer le stream
-                await asyncio.sleep(0.01)
-            
-            # Message final pour indiquer que c'est terminé
-            completion_label = "Analyse terminée"
-            if detected_language == "fr":
-                completion_label = "Analyse terminée"
-            elif detected_language == "en":
-                completion_label = "Analysis completed"
-            elif detected_language == "es":
-                completion_label = "Análisis completado"
-            elif detected_language == "de":
-                completion_label = "Analyse abgeschlossen"
+            try:
+                async for chunk in stream_deepseek_response(
+                    messages,
+                    settings.deepseek_api_key,
+                    settings.deepseek_api_url,
+                    model,
+                    detected_language
+                ):
+                    yield f"data: {json.dumps(chunk.dict())}\n\n"
+                    # Réduire le délai pour accélérer le stream
+                    await asyncio.sleep(0.01)
                 
-            step = ThinkingStep(
-                step="reasoning",
-                status="completed",
-                details=completion_label
-            )
-            yield f"data: {json.dumps(step.dict())}\n\n"
+                # Message final pour indiquer que c'est terminé
+                completion_label = "Analyse terminée"
+                if detected_language == "fr":
+                    completion_label = "Analyse terminée"
+                elif detected_language == "en":
+                    completion_label = "Analysis completed"
+                elif detected_language == "es":
+                    completion_label = "Análisis completado"
+                elif detected_language == "de":
+                    completion_label = "Analyse abgeschlossen"
+                
+                step = ThinkingStep(
+                    step="reasoning",
+                    status="completed",
+                    details=completion_label
+                )
+                yield f"data: {json.dumps(step.dict())}\n\n"
+                
+                # Envoyer un signal de fin pour fermer proprement la connexion
+                yield f"data: [DONE]\n\n"
             
-            # Ajouter un message [DONE] pour indiquer la fin du stream
-            yield f"data: [DONE]\n\n"
+            except Exception as e:
+                print(f"Stream error: {str(e)}")
+                error_msg = "Erreur lors du streaming"
+                if detected_language == "en":
+                    error_msg = "Error during streaming"
+                elif detected_language == "es":
+                    error_msg = "Error durante el streaming"
+                elif detected_language == "de":
+                    error_msg = "Fehler beim Streaming"
+                
+                error_step = ThinkingStep(
+                    step="error",
+                    status="error",
+                    details=error_msg
+                )
+                yield f"data: {json.dumps(error_step.dict())}\n\n"
+                # Envoyer un signal de fin pour fermer proprement la connexion
+                yield f"data: [DONE]\n\n"
+                
+        except asyncio.CancelledError:
+            # Gestion explicite de l'annulation du stream (client déconnecté)
+            print("Stream cancelled - client disconnected")
+            # Ne pas renvoyer de données, la connexion est déjà fermée
+            raise
             
         except Exception as e:
-            error_message = f"Error in streaming: {str(e)}"
-            print(f"Stream error: {error_message}")
-            
-            # Adapter le message d'erreur à la langue
-            error_prefix = "Erreur"
-            if detected_language == "en":
-                error_prefix = "Error"
-            elif detected_language == "es":
-                error_prefix = "Error"
-            elif detected_language == "de":
-                error_prefix = "Fehler"
-                
-            error_step = ThinkingStep(
-                step="error",
-                status="error", 
-                details=f"{error_prefix}: {str(e)}"
-            )
-            
-            yield f"data: {json.dumps(error_step.dict())}\n\n"
-            
-            # Ajouter un message [DONE] même en cas d'erreur
-            yield f"data: [DONE]\n\n"
+            # Gérer les erreurs générales
+            print(f"Event generator error: {str(e)}")
+            try:
+                error_step = ThinkingStep(
+                    step="error",
+                    status="error",
+                    details="Une erreur s'est produite"
+                )
+                yield f"data: {json.dumps(error_step.dict())}\n\n"
+                # Envoyer un signal de fin pour fermer proprement la connexion
+                yield f"data: [DONE]\n\n"
+            except:
+                # Si on ne peut même pas envoyer l'erreur, on abandonne silencieusement
+                pass
     
+    # Retourner une StreamingResponse avec gestion spécifique de la déconnexion client
     return StreamingResponse(
-        event_generator(),
+        event_generator(), 
         media_type="text/event-stream",
         headers={
             "Cache-Control": "no-cache",
-            "Connection": "keep-alive", 
-            "Access-Control-Allow-Origin": "*",
-            "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
-            "Access-Control-Allow-Headers": "*",
-            "Access-Control-Expose-Headers": "*"
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no"  # Désactiver la mise en buffer pour Nginx
         }
     )
 

@@ -1,118 +1,103 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
 } from '../ui/dialog';
 import { Settings } from 'lucide-react';
 import { Button } from '../ui/button';
+import AccountSettings from './Account/AccountSettings';
+import ToolsSettings from './Tools/ToolsSettings';
+import ModelsSettings from './Models/ModelsSettings';
+
+type SettingsTab = 'account' | 'tools' | 'models';
 
 export function SettingsDialog() {
-  const [apiKeys, setApiKeys] = useState({
-    abtasty: '',
-    optimizely: '',
-    dynamicyield: ''
-  });
+  const [activeTab, setActiveTab] = useState<SettingsTab>('account');
+  const [isOpen, setIsOpen] = useState(false);
 
-  const handleApiKeyChange = (provider: string, value: string) => {
-    setApiKeys(prev => ({
-      ...prev,
-      [provider]: value
-    }));
-  };
+  // Listen for custom event to open settings with specific tab
+  useEffect(() => {
+    const handleOpenSettings = (e: CustomEvent) => {
+      const requestedTab = e.detail?.activeTab;
+      if (requestedTab && ['account', 'tools', 'models'].includes(requestedTab)) {
+        setActiveTab(requestedTab as SettingsTab);
+      }
+      setIsOpen(true);
+    };
+
+    window.addEventListener('openSettings', handleOpenSettings as EventListener);
+    
+    return () => {
+      window.removeEventListener('openSettings', handleOpenSettings as EventListener);
+    };
+  }, []);
 
   return (
-    <Dialog>
+    <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogTrigger asChild>
         <Button variant="ghost" size="icon">
           <Settings className="h-5 w-5" />
           <span className="sr-only">Settings</span>
         </Button>
       </DialogTrigger>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Settings</DialogTitle>
-          <DialogDescription>
-            Configure your AB Tasty Toolkit preferences
-          </DialogDescription>
-        </DialogHeader>
-        <div className="space-y-4 py-4">
-          <div className="space-y-2">
-            <h3 className="text-sm font-medium">API Configuration</h3>
-            <div className="space-y-1">
-              <label className="text-sm text-gray-500">AB Tasty API Key</label>
-              <input
-                type="password"
-                className="w-full rounded-md border px-3 py-2"
-                value={apiKeys.abtasty || '••••••••••••••••'}
-                onChange={(e) => handleApiKeyChange('abtasty', e.target.value)}
-                placeholder="Enter your AB Tasty API key"
+      <DialogContent className="sm:max-w-[900px] p-0 gap-0 overflow-hidden">
+        <div className="flex h-[600px]">
+          {/* Sidebar */}
+          <div className="w-64 border-r bg-gray-50">
+            <DialogHeader className="px-6 py-4 border-b">
+              <DialogTitle className="text-xl">Settings</DialogTitle>
+            </DialogHeader>
+            <nav className="p-4 space-y-1">
+              <SidebarItem 
+                label="Account" 
+                isActive={activeTab === 'account'} 
+                onClick={() => setActiveTab('account')}
               />
-            </div>
+              <SidebarItem 
+                label="External Tools" 
+                isActive={activeTab === 'tools'} 
+                onClick={() => setActiveTab('tools')}
+              />
+              <SidebarItem 
+                label="AI Models" 
+                isActive={activeTab === 'models'} 
+                onClick={() => setActiveTab('models')}
+              />
+            </nav>
           </div>
           
-          <div className="space-y-4">
-            <h3 className="text-sm font-medium">Analysis Tools</h3>
-            
-            <div className="space-y-3">
-              <div className="border rounded-md p-3">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h4 className="text-sm font-medium">Optimizely</h4>
-                    <p className="text-xs text-gray-500">Connect to import test results</p>
-                  </div>
-                  <div className="flex items-center">
-                    <input
-                      type="text"
-                      className="rounded-md border px-3 py-1 text-sm w-48"
-                      placeholder="API Key"
-                      value={apiKeys.optimizely}
-                      onChange={(e) => handleApiKeyChange('optimizely', e.target.value)}
-                    />
-                  </div>
-                </div>
-              </div>
-              
-              <div className="border rounded-md p-3">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h4 className="text-sm font-medium">Dynamic Yield</h4>
-                    <p className="text-xs text-gray-500">Connect to import test results</p>
-                  </div>
-                  <div className="flex items-center">
-                    <input
-                      type="text"
-                      className="rounded-md border px-3 py-1 text-sm w-48"
-                      placeholder="API Key"
-                      value={apiKeys.dynamicyield}
-                      onChange={(e) => handleApiKeyChange('dynamicyield', e.target.value)}
-                    />
-                  </div>
-                </div>
-              </div>
-              
-              <div className="border rounded-md p-3">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h4 className="text-sm font-medium">Google Optimize</h4>
-                    <p className="text-xs text-gray-500">Legacy support - CSV only</p>
-                  </div>
-                  <Button variant="outline" size="sm" className="text-xs h-8" disabled>
-                    Not Available
-                  </Button>
-                </div>
-              </div>
+          {/* Content */}
+          <div className="flex-1 overflow-y-auto">
+            <div className="p-6">
+              {activeTab === 'account' && <AccountSettings />}
+              {activeTab === 'tools' && <ToolsSettings />}
+              {activeTab === 'models' && <ModelsSettings />}
             </div>
-            
-            <p className="text-xs text-gray-500 mt-2">
-              API keys are securely stored in your browser's local storage
-            </p>
           </div>
         </div>
       </DialogContent>
     </Dialog>
   );
 }
+
+type SidebarItemProps = {
+  label: string;
+  isActive: boolean;
+  onClick: () => void;
+};
+
+const SidebarItem: React.FC<SidebarItemProps> = ({ label, isActive, onClick }) => (
+  <button
+    className={`w-full text-left px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+      isActive 
+        ? 'bg-purple-100 text-purple-700' 
+        : 'text-gray-700 hover:bg-gray-100'
+    }`}
+    onClick={onClick}
+  >
+    {label}
+  </button>
+);
