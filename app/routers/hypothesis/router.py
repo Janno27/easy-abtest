@@ -77,17 +77,21 @@ async def generate_hypothesis(
             detail=f"Invalid model: {model}. Supported models: llama, deepseek, deepseek-reasoner."
         )
     
+    # Récupérer les clés API depuis la requête ou utiliser celles des variables d'environnement
+    hf_api_key = request.api_keys.get("huggingface") if hasattr(request, "api_keys") and request.api_keys else settings.hf_api_key
+    deepseek_api_key = request.api_keys.get("deepseek") if hasattr(request, "api_keys") and request.api_keys else settings.deepseek_api_key
+    
     # Vérification des clés API
-    if model == "llama" and (not settings.hf_api_key or not settings.hf_api_key.strip()):
+    if model == "llama" and (not hf_api_key or not hf_api_key.strip()):
         raise HTTPException(
             status_code=500, 
-            detail="HF_API_KEY not configured. Please set this environment variable."
+            detail="HF_API_KEY not configured. Please provide it in the request or set the environment variable."
         )
     
-    if model in ["deepseek", "deepseek-reasoner"] and (not settings.deepseek_api_key or not settings.deepseek_api_key.strip()):
+    if model in ["deepseek", "deepseek-reasoner"] and (not deepseek_api_key or not deepseek_api_key.strip()):
         raise HTTPException(
             status_code=500, 
-            detail="DEEPSEEK_API_KEY not configured. Please set this environment variable."
+            detail="DEEPSEEK_API_KEY not configured. Please provide it in the request or set the environment variable."
         )
     
     try:
@@ -136,7 +140,7 @@ async def generate_hypothesis(
         if model == "llama":
             llm_response = await call_huggingface_api(
                 messages,
-                settings.hf_api_key,
+                hf_api_key,
                 settings.hf_llama_model,
                 conversation_id,
                 detected_language
@@ -144,7 +148,7 @@ async def generate_hypothesis(
         elif model == "deepseek-reasoner":
             llm_response = await call_deepseek_api(
                 messages,
-                settings.deepseek_api_key,
+                deepseek_api_key,
                 settings.deepseek_api_url,
                 conversation_id,
                 "deepseek-reasoner",
@@ -153,7 +157,7 @@ async def generate_hypothesis(
         else:  # deepseek standard
             llm_response = await call_deepseek_api(
                 messages,
-                settings.deepseek_api_key,
+                deepseek_api_key,
                 settings.deepseek_api_url,
                 conversation_id,
                 "deepseek-chat",
@@ -175,6 +179,8 @@ async def stream_hypothesis(
     message: str,
     conversation_id: Optional[str] = None,
     model: str = 'deepseek-reasoner',
+    api_key_huggingface: Optional[str] = None,
+    api_key_deepseek: Optional[str] = None,
     req: Request = None,
     settings: Settings = Depends(get_settings)
 ):
@@ -192,6 +198,16 @@ async def stream_hypothesis(
     # Preparation
     if model != "deepseek-reasoner":
         model = "deepseek-reasoner"  # Forcer l'utilisation de deepseek-reasoner pour le streaming
+    
+    # Utiliser les clés API fournies ou celles des variables d'environnement
+    deepseek_api_key = api_key_deepseek or settings.deepseek_api_key
+    
+    # Vérifier si la clé API nécessaire est disponible
+    if not deepseek_api_key:
+        raise HTTPException(
+            status_code=500, 
+            detail="DEEPSEEK_API_KEY not configured. Please provide it as a parameter or set the environment variable."
+        )
     
     # Pour le message SSE
     async def event_generator():
@@ -230,7 +246,7 @@ async def stream_hypothesis(
             try:
                 async for chunk in stream_deepseek_response(
                     messages,
-                    settings.deepseek_api_key,
+                    deepseek_api_key,
                     settings.deepseek_api_url,
                     model,
                     detected_language
@@ -331,6 +347,10 @@ async def generate_title(
             detail=f"Invalid model: {model}. Supported models: llama, deepseek, deepseek-reasoner."
         )
     
+    # Récupérer les clés API depuis la requête ou utiliser celles des variables d'environnement
+    hf_api_key = request.api_keys.get("huggingface") if hasattr(request, "api_keys") and request.api_keys else settings.hf_api_key
+    deepseek_api_key = request.api_keys.get("deepseek") if hasattr(request, "api_keys") and request.api_keys else settings.deepseek_api_key
+    
     try:
         # Debug info
         print(f"Generating title with model: {model}")
@@ -350,13 +370,13 @@ async def generate_title(
         
         # API Call depending on model
         if model == "llama":
-            response = await call_title_api(messages, settings.hf_api_key, settings.hf_llama_model, "llama")
+            response = await call_title_api(messages, hf_api_key, settings.hf_llama_model, "llama")
         elif model == "deepseek-reasoner":
             # Pour éviter les erreurs avec Deepseek Reasoner, utiliser toujours le modèle standard pour les titres
             print("Notice: Using standard Deepseek model for title generation instead of Deepseek Reasoner")
-            response = await call_title_api(messages, settings.deepseek_api_key, settings.deepseek_api_url, "deepseek")
+            response = await call_title_api(messages, deepseek_api_key, settings.deepseek_api_url, "deepseek")
         else:  # deepseek standard
-            response = await call_title_api(messages, settings.deepseek_api_key, settings.deepseek_api_url, "deepseek")
+            response = await call_title_api(messages, deepseek_api_key, settings.deepseek_api_url, "deepseek")
         
         print(f"Generated title: {response}")
             

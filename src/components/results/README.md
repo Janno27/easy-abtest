@@ -7,18 +7,34 @@ This module allows you to analyze A/B test results in different ways:
 ## Component Structure
 
 - `ResultsAnalysis.tsx`: Main component that orchestrates the different analysis methods
-- `ApiTestImport.tsx`: Handles test imports from third-party APIs
+- `ApiImport/ApiTestImport.tsx`: Handles test imports from third-party APIs
+- `ApiImport/ABTastyList.tsx`: Specific component for AB Tasty test listing and filtering
 - `CsvAnalysis.tsx`: Allows analysis of manually imported CSV data
 
 ## Features
 
 ### API Import
 
-- Connection to APIs of major A/B testing platforms
-- Automatic retrieval of test results
+#### AB Tasty Integration
+- Full integration with AB Tasty Core API
 - Configuration via application settings
+- Multiple properties management (each with its own credentials)
+- Test listing with filtering by type and status
+- Real-time verification of API credentials
 
-**Current status:** Interface ready, API connectivity to be implemented
+**Configuration:**
+- Client ID & Client Secret: OAuth2 authentication credentials
+- Account Identifier (Tag ID): 32-character hexadecimal identifier
+- Account ID: 5-6 digit numeric identifier for Core API access
+
+**Property Management:**
+- Each property represents a different AB Tasty account/project
+- Properties are stored in localStorage under 'abtastyConfig'
+- Each property contains its own set of credentials and identifiers
+
+#### Other Platforms (Planned)
+- Optimizely (coming soon)
+- Dynamic Yield (coming soon)
 
 ### CSV Analysis
 
@@ -35,7 +51,9 @@ variant_1,1050,120
 
 ## Future Development
 
-- [ ] API connectivity implementation (AB Tasty, Optimizely, Dynamic Yield)
+- [x] AB Tasty API connectivity implementation
+- [ ] Optimizely API connectivity implementation
+- [ ] Dynamic Yield API connectivity implementation
 - [ ] Statistical analysis of data (significance, confidence interval)
 - [ ] Results visualization with charts
 - [ ] Export of analyses in PDF/CSV format

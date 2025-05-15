@@ -6,10 +6,12 @@ class HypothesisRequest(BaseModel):
     conversation_id: Optional[str] = None
     message_history: Optional[List[dict]] = None
     model: str = "deepseek"  # Par défaut, on utilise deepseek
+    api_keys: Optional[Dict[str, str]] = None  # Pour stocker les clés API {"huggingface": "...", "deepseek": "..."}
 
 class TitleRequest(BaseModel):
     message: str
     model: str = "deepseek"
+    api_keys: Optional[Dict[str, str]] = None  # Pour stocker les clés API {"huggingface": "...", "deepseek": "..."}
 
 class HypothesisResponse(BaseModel):
     message: str

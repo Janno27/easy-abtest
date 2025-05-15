@@ -360,7 +360,7 @@ const DurationCalculator = () => {
               <div className="flex items-center justify-between">
                 <h3 className="text-sm font-medium">Statistical Method</h3>
               </div>
-              <RadioGroup value={statisticalMethod} onValueChange={setStatisticalMethod} className="flex items-center space-x-6">
+              <RadioGroup value={statisticalMethod} onValueChange={setStatisticalMethod} className="flex items-center space-x-6 mt-3">
                 <div className="flex items-center space-x-2">
                   <div className="flex-1">
                     <div className="flex items-center space-x-2">
@@ -383,7 +383,7 @@ const DurationCalculator = () => {
                 <h3 className="text-sm font-medium">Test Type</h3>
                 <InfoTooltip content={testTypeTooltipContent} size="small" />
               </div>
-              <RadioGroup value={testType} onValueChange={setTestType} className="flex items-center space-x-6">
+              <RadioGroup value={testType} onValueChange={setTestType} className="flex items-center space-x-6 mt-3">
                 <div className="flex items-center space-x-2">
                   <RadioGroupItem value="2-sided" id="2-sided" />
                   <label htmlFor="2-sided" className="text-sm">2-sided</label>

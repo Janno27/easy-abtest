@@ -3,7 +3,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeRaw from 'rehype-raw';
 import { Button } from '../ui/button';
-import Table from '../../components/ui/Table';
+import Table from '../ui/Table';
 import { MarkdownStyles } from './ChatFlow';
 
 // Type pour les components ReactMarkdown 

@@ -18,6 +18,21 @@ class HypothesisService {
   }
   
   /**
+   * Get API keys from localStorage
+   */
+  private getApiKeys(): Record<string, string> {
+    try {
+      const savedKeys = localStorage.getItem('model_api_keys');
+      if (savedKeys) {
+        return JSON.parse(savedKeys);
+      }
+    } catch (error) {
+      console.error('Error parsing model API keys from localStorage:', error);
+    }
+    return {};
+  }
+  
+  /**
    * Generate a hypothesis or response from the AI
    */
   async generateResponse(
@@ -31,6 +46,9 @@ class HypothesisService {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 120000); // 120 secondes de timeout
       
+      // Récupérer les clés API depuis localStorage
+      const apiKeys = this.getApiKeys();
+      
       const response = await fetch(`${this.apiUrl}/hypothesis/generate`, {
         method: 'POST',
         headers: {
@@ -40,7 +58,8 @@ class HypothesisService {
           message,
           conversation_id: conversationId,
           message_history: this.formatMessagesForApi(messageHistory),
-          model: model
+          model: model,
+          api_keys: apiKeys // Ajouter les clés API à la requête
         }),
         signal: controller.signal
       });
@@ -93,6 +112,9 @@ class HypothesisService {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 secondes de timeout
       
+      // Récupérer les clés API depuis localStorage
+      const apiKeys = this.getApiKeys();
+      
       const response = await fetch(`${this.apiUrl}/hypothesis/generate-title`, {
         method: 'POST',
         headers: {
@@ -100,7 +122,8 @@ class HypothesisService {
         },
         body: JSON.stringify({
           message: firstMessage,
-          model: model
+          model: model,
+          api_keys: apiKeys // Ajouter les clés API à la requête
         }),
         signal: controller.signal
       });
@@ -159,6 +182,15 @@ class HypothesisService {
       params.append('conversation_id', conversationId);
     }
     params.append('model', model);
+    
+    // Récupérer les clés API depuis localStorage
+    const apiKeys = this.getApiKeys();
+    if (apiKeys.huggingface) {
+      params.append('api_key_huggingface', apiKeys.huggingface);
+    }
+    if (apiKeys.deepseek) {
+      params.append('api_key_deepseek', apiKeys.deepseek);
+    }
     
     // Ajout d'un timestamp pour éviter les problèmes de cache
     params.append('_t', Date.now().toString());

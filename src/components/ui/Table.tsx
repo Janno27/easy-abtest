@@ -2,27 +2,23 @@ import React from 'react';
 
 interface TableProps {
   headers: string[];
-  rows: Record<string, string>[];
+  rows: any[];
   alignments?: string[];
   id?: string;
-  className?: string;
+  onRowClick?: (id: string) => void;
 }
 
-const Table: React.FC<TableProps> = ({
-  headers,
-  rows,
-  alignments = [],
-  id = "table",
-  className = ""
-}) => {
-  // Utiliser les alignements fournis ou par défaut "left" pour tous les en-têtes
-  const resolvedAlignments = headers.map((_, index) => 
-    alignments[index] || 'left'
-  );
+const Table: React.FC<TableProps> = ({ headers, rows, alignments = [], id, onRowClick }) => {
+  const defaultAlignment = 'left';
   
-  // Fonction pour obtenir la classe d'alignement
-  const getAlignmentClass = (alignment: string) => {
+  const getAlignment = (index: number) => {
+    return alignments[index] || defaultAlignment;
+  };
+
+  const getTextAlignClass = (alignment: string) => {
     switch (alignment) {
+      case 'left':
+        return 'text-left';
       case 'center':
         return 'text-center';
       case 'right':
@@ -33,15 +29,15 @@ const Table: React.FC<TableProps> = ({
   };
 
   return (
-    <div className={`overflow-hidden rounded-lg border border-gray-200 shadow-sm mb-4 bg-white ${className}`}>
-      <table className="min-w-full divide-y divide-gray-200">
-        <thead className="bg-gray-100">
+    <div className="overflow-x-auto">
+      <table className="min-w-full divide-y divide-gray-200" id={id}>
+        <thead className="bg-gray-50">
           <tr>
             {headers.map((header, index) => (
-              <th
-                key={`${id}-th-${index}`}
-                scope="col"
-                className={`px-4 py-3 text-xs font-semibold text-gray-700 uppercase tracking-wider ${getAlignmentClass(resolvedAlignments[index])} ${index === headers.length - 1 ? '' : 'border-r border-gray-200'}`}
+              <th 
+                key={index}
+                scope="col" 
+                className={`px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider ${getTextAlignClass(getAlignment(index))}`}
               >
                 {header}
               </th>
@@ -51,13 +47,14 @@ const Table: React.FC<TableProps> = ({
         <tbody className="bg-white divide-y divide-gray-200">
           {rows.map((row, rowIndex) => (
             <tr 
-              key={`${id}-tr-${rowIndex}`}
-              className={rowIndex % 2 === 0 ? 'bg-white hover:bg-gray-50' : 'bg-gray-50 hover:bg-gray-100'}
+              key={rowIndex} 
+              className={onRowClick ? 'hover:bg-gray-50 cursor-pointer' : ''}
+              onClick={onRowClick ? () => onRowClick(row.ID) : undefined}
             >
               {headers.map((header, colIndex) => (
-                <td
-                  key={`${id}-td-${rowIndex}-${colIndex}`}
-                  className={`px-4 py-3 text-sm text-gray-800 ${getAlignmentClass(resolvedAlignments[colIndex])} ${colIndex === headers.length - 1 ? '' : 'border-r border-gray-100'}`}
+                <td 
+                  key={colIndex} 
+                  className={`px-6 py-4 whitespace-nowrap text-sm text-gray-500 ${getTextAlignClass(getAlignment(colIndex))}`}
                 >
                   {row[header]}
                 </td>
@@ -70,4 +67,5 @@ const Table: React.FC<TableProps> = ({
   );
 };
 
-export default Table; 
+export default Table;
+export type { TableProps }; 

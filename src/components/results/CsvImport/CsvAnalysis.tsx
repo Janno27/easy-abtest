@@ -1,7 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { Button } from '../../ui/button';
 import { Card, CardContent } from '../../ui/card';
-import TestCard from '../TestCard';
 import { FileUp } from 'lucide-react';
 
 interface CsvData {
@@ -175,9 +174,7 @@ const CsvAnalysis = () => {
               New analysis
             </Button>
           </div>
-          
-          <TestCard test={analyzedData} />
-          
+
           <div className="space-y-3 pt-4 border-t">
             <h3 className="text-sm font-medium">Recommendation</h3>
             <Card className="bg-purple-50 border-purple-200">

@@ -19,6 +19,7 @@ from app.routers import external_apis
 from app.routers import imports
 from app.routers import settings as settings_router
 from app.core.logging import setup_logging
+from app.api import abtasty
 
 # Setup logging
 setup_logging()
@@ -32,12 +33,9 @@ app = FastAPI(
 )
 
 # Configuration des CORS pour permettre les requêtes depuis le frontend
-# Définition manuelle des origines pour éviter les problèmes de configuration
-origins = ["http://localhost:3000", "http://localhost:8080", "http://localhost:5173", "*"]
-
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -58,6 +56,7 @@ app.include_router(hypothesis.router, tags=["hypothesis"])
 app.include_router(external_apis.router, tags=["external APIs"])
 app.include_router(imports.router, tags=["imports"])
 app.include_router(settings_router.router, tags=["settings"])
+app.include_router(abtasty.router, prefix="/api", tags=["abtasty"])
 
 @app.get("/")
 async def root():

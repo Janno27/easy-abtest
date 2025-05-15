@@ -4,7 +4,7 @@ import { RadioGroup, RadioGroupItem } from '../../ui/radio-group';
 import { Card, CardContent } from '../../ui/card';
 import { AlertTriangle, RefreshCw } from 'lucide-react';
 import { useLocalStorage } from '../../../hooks/useLocalStorage';
-import TestCard from '../TestCard';
+import { ABTastyList } from './ABTasty';
 
 type ApiProvider = 'abtasty' | 'optimizely' | 'dynamicyield';
 
@@ -14,51 +14,14 @@ interface ApiConfig {
   dynamicyield?: string;
 }
 
-// Mock tests for demonstration
-const mockTests = [
-  {
-    id: "test1",
-    name: "Homepage CTA Test",
-    status: "Completed",
-    startDate: "2023-04-15",
-    endDate: "2023-04-30",
-    visits: {
-      control: 5680,
-      variant: 5720
-    },
-    conversions: {
-      control: 510,
-      variant: 631
-    },
-    conversionRate: {
-      control: "8.98%",
-      variant: "11.03%"
-    },
-    improvement: "+22.8%",
-    significance: "99.8%"
-  },
-  {
-    id: "test2",
-    name: "Product Page Layout",
-    status: "Running",
-    startDate: "2023-05-10",
-    endDate: "2023-05-25",
-    visits: {
-      control: 3240,
-      variant: 3195
-    },
-    conversions: {
-      control: 258,
-      variant: 305
-    },
-    conversionRate: {
-      control: "7.96%",
-      variant: "9.55%"
-    },
-    improvement: "+19.9%",
-    significance: "94.2%"
-  }
-];
+// Interface pour une propriété AB Tasty
+interface ABTastyProperty {
+  name: string;
+  clientId: string;
+  clientSecret: string;
+  accountId: string;
+  numericAccountId: string;
+}
 
 const ApiTestImport = () => {
   const [selectedProvider, setSelectedProvider] = useState<ApiProvider>('abtasty');
@@ -69,6 +32,19 @@ const ApiTestImport = () => {
 
   // Check if selected API is configured
   const isApiConfigured = () => {
+    if (selectedProvider === 'abtasty') {
+      // Vérifier si abtastyConfig existe et contient au moins une propriété
+      const configStr = localStorage.getItem('abtastyConfig');
+      if (!configStr) return false;
+      
+      try {
+        const config = JSON.parse(configStr);
+        return !!(config.properties && config.properties.length > 0);
+      } catch (e) {
+        console.error('Failed to parse abtastyConfig', e);
+        return false;
+      }
+    }
     return !!apiConfig[selectedProvider];
   };
 
@@ -80,7 +56,6 @@ const ApiTestImport = () => {
     setIsLoading(true);
     // Simulation of import - in a real case, call the API
     setTimeout(() => {
-      setTests(mockTests);
       setHasImported(true);
       setIsLoading(false);
     }, 1500);
@@ -93,6 +68,11 @@ const ApiTestImport = () => {
     });
     window.dispatchEvent(event);
   };
+
+  // Si AB Tasty est configuré et sélectionné, afficher directement la liste des tests
+  if (selectedProvider === 'abtasty' && isApiConfigured()) {
+    return <ABTastyList />;
+  }
 
   return (
     <div className="space-y-6">
@@ -129,7 +109,7 @@ const ApiTestImport = () => {
               <label htmlFor="abtasty" className="font-medium text-sm cursor-pointer flex-1">
                 AB Tasty
               </label>
-              {apiConfig.abtasty && (
+              {isApiConfigured() && selectedProvider === 'abtasty' && (
                 <span className="bg-green-50 text-green-700 text-xs px-2 py-1 rounded">Configured</span>
               )}
             </div>
@@ -155,7 +135,7 @@ const ApiTestImport = () => {
         </div>
       )}
 
-      {isApiConfigured() && (
+      {isApiConfigured() && selectedProvider !== 'abtasty' && (
         <Button 
           onClick={handleImportTests} 
           className="w-full bg-purple-600 hover:bg-purple-700 text-white"
@@ -186,12 +166,6 @@ const ApiTestImport = () => {
               <RefreshCw className="h-3.5 w-3.5 mr-1" />
               Refresh
             </Button>
-          </div>
-          
-          <div className="space-y-4">
-            {tests.map(test => (
-              <TestCard key={test.id} test={test} />
-            ))}
           </div>
         </div>
       )}
